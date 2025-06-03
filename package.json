@@ -7,7 +7,8 @@
     "start": "node index.js",
     "bot": "node trading-bot.js",
     "analyst": "node market-analyst-bot.js",
-    "verify": "node verify-portfolio.js"
+    "verify": "node verify-portfolio.js",
+    "check-orders": "node check-orders.js"
   },
   "dependencies": {
     "ib": "^0.2.9",
