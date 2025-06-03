@@ -149,11 +149,45 @@ Tu trabajo es analizar el mercado tecnológico y explicarlo de forma SIMPLE, DIR
 Hablas en español, sin rodeos, yendo al grano. Usas analogías simples cuando es necesario.
 Piensas en términos de oportunidades y riesgos REALES, no teorías académicas.
 
-IMPORTANTE: Tu respuesta DEBE estar estructurada en exactamente 4 secciones XML:
+CRÍTICO: Tu respuesta DEBE estar estructurada en exactamente 5 secciones XML:
 1. <panorama> - Explicación pragmática del mercado hoy
-2. <monologo> - Reflexión interna de EXACTAMENTE 50 líneas
+2. <monologo> - Reflexión interna de EXACTAMENTE 50 líneas numeradas
 3. <conclusion> - Sugerencia final concreta
-4. <accion> - Acción específica a ejecutar`;
+4. <accion_estrategica> - Contexto y explicación de la estrategia
+5. <accion_ejecutable> - ÚNICAMENTE órdenes que se pueden ejecutar en Interactive Brokers
+
+FORMATO CRÍTICO PARA ACCION_EJECUTABLE:
+Debes responder con UNA de estas opciones EXACTAS:
+
+OPCIÓN 1 - COMPRAR:
+<accion_ejecutable>
+  <side>BUY</side>
+  <symbol>AAPL</symbol>
+  <quantity>10</quantity>
+  <order_type>MARKET</order_type>
+</accion_ejecutable>
+
+OPCIÓN 2 - VENDER:
+<accion_ejecutable>
+  <side>SELL</side>
+  <symbol>TSLA</symbol>
+  <quantity>5</quantity>
+  <order_type>MARKET</order_type>
+</accion_ejecutable>
+
+OPCIÓN 3 - NO HACER NADA:
+<accion_ejecutable>
+  <side>HOLD</side>
+</accion_ejecutable>
+
+REGLAS ABSOLUTAS:
+- JAMÁS pongas "establecer alerta", "monitorear", "esperar" en accion_ejecutable
+- side SOLO puede ser: BUY, SELL, HOLD (nada más)
+- symbol SOLO tickers válidos: AAPL, GOOGL, MSFT, TSLA, NVDA, AMZN, META
+- quantity SOLO números enteros positivos
+- order_type SOLO puede ser: MARKET (por ahora)
+- Si no hay acción inmediata que ejecutar → HOLD
+- Las estrategias van en accion_estrategica, NO en accion_ejecutable`;
 
     const userPrompt = `${portfolioContext}
 
@@ -161,17 +195,13 @@ ${newsContext}
 
 Analiza esta situación y responde en el formato XML exacto que te especifiqué.
 
-EJEMPLO DE RESPUESTA ESPERADA:
+EJEMPLO COMPLETO DE RESPUESTA ESPERADA:
 
 <analysis>
 <panorama>
 Hoy el mercado tech está mostrando señales mixtas interesantes. NVIDIA sigue en su rally imparable - básicamente están vendiendo palas en la fiebre del oro de la IA. Tesla por otro lado está tomando un respiro después de semanas alcistas, típica corrección saludable.
 
 Lo más relevante: Microsoft y Google están en una guerra silenciosa por dominar la IA empresarial. Es como la carrera espacial pero con modelos de lenguaje. Apple se mantiene lateral, esperando su momento para lanzar algo que cambie el juego - típico de ellos.
-
-Amazon está barato relativamente, el mercado está castigando injustamente su división cloud. Meta sigue recuperándose de su resaca del metaverso, pivoteando hacia IA de forma inteligente.
-
-El contexto macro: tasas altas pero estables, inflación controlándose. El mercado tech respira aliviado pero cauteloso. Es momento de ser selectivo, no de comprar todo lo que brilla.
 </panorama>
 
 <monologo>
@@ -232,19 +262,18 @@ El mercado está dándote una ventana de oportunidad en tech de calidad. No es m
 
 RECOMENDACIÓN PRAGMÁTICA: 
 Con tu efectivo disponible, aprovecha la debilidad temporal en Amazon (AWS está infravalorado) o aumenta posición en Microsoft si tienes menos del 20% de tu portfolio ahí. Ambos son jugadas conservadoras con upside significativo.
-
-Evita FOMO en NVIDIA por ahora - está muy extendida. Tesla es lotería a corto plazo. Apple espera a ver qué hacen con Vision Pro.
-
-La jugada inteligente: 30% del efectivo a Amazon o Microsoft, mantén 70% para oportunidades mejores. El que tiene cash en correcciones es rey.
 </conclusion>
 
-<accion>
-COMPRAR 50 acciones de AMZN @ mercado (approx $155-160)
-Costo estimado: $7,750-8,000
-Razón: AWS infravalorado, retail recuperándose, Alexa con IA será game changer
-Horizonte: 18-24 meses
-Target: $200+ (25-30% upside)
-</accion>
+<accion_estrategica>
+La jugada inteligente es usar 30% del efectivo disponible para aumentar exposición a Amazon. AWS está infravalorado por el mercado, retail se está recuperando, y la integración de IA en Alexa será un game changer. Horizonte 18-24 meses con target de $200+ (25-30% upside esperado). Mantener 70% del cash para próximas oportunidades.
+</accion_estrategica>
+
+<accion_ejecutable>
+  <side>BUY</side>
+  <symbol>AMZN</symbol>
+  <quantity>15</quantity>
+  <order_type>MARKET</order_type>
+</accion_ejecutable>
 </analysis>`;
 
     // Preparar input para GPT-4.5
@@ -313,9 +342,47 @@ function parseAnalysis(xmlText) {
     const panorama = analysis.match(/<panorama>([\s\S]*?)<\/panorama>/)?.[1]?.trim() || '';
     const monologo = analysis.match(/<monologo>([\s\S]*?)<\/monologo>/)?.[1]?.trim() || '';
     const conclusion = analysis.match(/<conclusion>([\s\S]*?)<\/conclusion>/)?.[1]?.trim() || '';
-    const accion = analysis.match(/<accion>([\s\S]*?)<\/accion>/)?.[1]?.trim() || '';
+    const accionEstrategica = analysis.match(/<accion_estrategica>([\s\S]*?)<\/accion_estrategica>/)?.[1]?.trim() || '';
+    const accionEjecutable = analysis.match(/<accion_ejecutable>([\s\S]*?)<\/accion_ejecutable>/)?.[1]?.trim() || '';
     
-    return { panorama, monologo, conclusion, accion };
+    // Parsear la acción ejecutable
+    let tradingAction = null;
+    if (accionEjecutable) {
+      const side = accionEjecutable.match(/<side>(.*?)<\/side>/)?.[1]?.trim();
+      const symbol = accionEjecutable.match(/<symbol>(.*?)<\/symbol>/)?.[1]?.trim();
+      const quantity = parseInt(accionEjecutable.match(/<quantity>(.*?)<\/quantity>/)?.[1] || '0');
+      const orderType = accionEjecutable.match(/<order_type>(.*?)<\/order_type>/)?.[1]?.trim();
+      
+      if (side) {
+        tradingAction = { side, symbol, quantity, orderType };
+        
+        // Validar la acción
+        if (!['BUY', 'SELL', 'HOLD'].includes(side)) {
+          console.error(chalk.red(`❌ Side inválido: ${side}`));
+          tradingAction = { side: 'HOLD' };
+        }
+        
+        if ((side === 'BUY' || side === 'SELL') && (!symbol || quantity <= 0)) {
+          console.error(chalk.red(`❌ Parámetros inválidos para ${side}`));
+          tradingAction = { side: 'HOLD' };
+        }
+        
+        const validSymbols = ['AAPL', 'GOOGL', 'MSFT', 'TSLA', 'NVDA', 'AMZN', 'META'];
+        if (symbol && !validSymbols.includes(symbol)) {
+          console.error(chalk.red(`❌ Símbolo inválido: ${symbol}`));
+          tradingAction = { side: 'HOLD' };
+        }
+      }
+    }
+    
+    return { 
+      panorama, 
+      monologo, 
+      conclusion, 
+      accionEstrategica, 
+      accionEjecutable: accionEjecutable,
+      tradingAction: tradingAction || { side: 'HOLD' }
+    };
     
   } catch (error) {
     console.error('Error parseando análisis:', error);
@@ -348,25 +415,59 @@ async function displayAnalysis(analysis) {
   console.log(chalk.green('═'.repeat(60)));
   console.log(chalk.white(analysis.conclusion));
   
-  // ACCIÓN SUGERIDA
+  // ACCIÓN ESTRATÉGICA
+  console.log(chalk.magenta('\n' + '═'.repeat(60)));
+  console.log(chalk.magenta.bold('📋 CONTEXTO ESTRATÉGICO'));
+  console.log(chalk.magenta('═'.repeat(60)));
+  console.log(chalk.white(analysis.accionEstrategica));
+  
+  // ACCIÓN EJECUTABLE
   console.log(chalk.cyan('\n' + '═'.repeat(60)));
-  console.log(chalk.cyan.bold('🎯 ACCIÓN RECOMENDADA'));
-  console.log(chalk.cyan('═'.repeat(60)));
-  console.log(chalk.white(analysis.accion));
+  console.log(chalk.cyan.bold('⚡ ACCIÓN EJECUTABLE'));
   console.log(chalk.cyan('═'.repeat(60)));
   
-  return analysis.accion;
+  const { tradingAction } = analysis;
+  
+  if (tradingAction.side === 'HOLD') {
+    console.log(chalk.blue('📊 MANTENER posiciones actuales (HOLD)'));
+  } else if (tradingAction.side === 'BUY') {
+    console.log(chalk.green(`📈 COMPRAR ${tradingAction.quantity} acciones de ${tradingAction.symbol}`));
+    console.log(chalk.gray(`   Tipo de orden: ${tradingAction.orderType}`));
+    
+    // Estimar costo
+    const estimatedPrice = 150; // Precio promedio estimado
+    const estimatedCost = tradingAction.quantity * estimatedPrice;
+    console.log(chalk.gray(`   Costo estimado: $${estimatedCost.toLocaleString()}`));
+  } else if (tradingAction.side === 'SELL') {
+    console.log(chalk.red(`📉 VENDER ${tradingAction.quantity} acciones de ${tradingAction.symbol}`));
+    console.log(chalk.gray(`   Tipo de orden: ${tradingAction.orderType}`));
+  }
+  
+  console.log(chalk.cyan('═'.repeat(60)));
+  
+  return tradingAction;
 }
 
 // Preguntar confirmación para ejecutar
-async function confirmExecution(actionText) {
+async function confirmExecution(tradingAction) {
+  if (tradingAction.side === 'HOLD') {
+    return false; // No hay nada que ejecutar
+  }
+  
+  let message = '';
+  if (tradingAction.side === 'BUY') {
+    message = `¿COMPRAR ${tradingAction.quantity} ${tradingAction.symbol} a precio de mercado?`;
+  } else if (tradingAction.side === 'SELL') {
+    message = `¿VENDER ${tradingAction.quantity} ${tradingAction.symbol} a precio de mercado?`;
+  }
+  
   console.log(chalk.yellow('\n⚠️  ¿Quieres ejecutar esta operación?'));
   
   const { confirm } = await inquirer.prompt([
     {
       type: 'confirm',
       name: 'confirm',
-      message: 'Ejecutar la acción recomendada?',
+      message: message,
       default: false
     }
   ]);
@@ -374,52 +475,92 @@ async function confirmExecution(actionText) {
   return confirm;
 }
 
-// Ejecutar acción si se confirma
-async function executeAction(actionText) {
-  // Parsear la acción
-  const buyMatch = actionText.match(/COMPRAR\s+(\d+)\s+acciones?\s+de\s+(\w+)/i);
-  const sellMatch = actionText.match(/VENDER\s+(\d+)\s+acciones?\s+de\s+(\w+)/i);
+// Ejecutar acción REAL en Interactive Brokers
+async function executeAction(tradingAction) {
+  if (tradingAction.side === 'HOLD') {
+    console.log(chalk.blue('\n📊 Manteniendo posiciones actuales (HOLD)'));
+    return;
+  }
   
-  if (buyMatch) {
-    const [_, quantity, symbol] = buyMatch;
-    console.log(chalk.green(`\n📈 Ejecutando COMPRA de ${quantity} ${symbol}...`));
+  if (!ibClient || !nextOrderId) {
+    console.error(chalk.red('\n❌ No hay conexión válida con Interactive Brokers'));
+    return;
+  }
+  
+  try {
+    const { side, symbol, quantity, orderType } = tradingAction;
     
-    if (ibClient && nextOrderId) {
-      const contract = ib.contract.stock(symbol, 'SMART', 'USD');
-      const order = ib.order.market('BUY', parseInt(quantity));
-      
-      ibClient.placeOrder(nextOrderId, contract, order);
-      
-      ibClient.on('orderStatus', (orderId, status, filled, remaining, avgFillPrice) => {
-        if (orderId === nextOrderId) {
-          console.log(chalk.green(`✅ Orden ${orderId}: ${status} - ${filled}/${quantity} @ $${avgFillPrice}`));
-        }
-      });
-      
-      nextOrderId++;
+    // Validaciones adicionales
+    if (side === 'BUY') {
+      const estimatedCost = quantity * 150; // Precio estimado
+      if (estimatedCost > portfolio.cash) {
+        console.log(chalk.red(`\n❌ Fondos insuficientes. Necesario: $${estimatedCost.toLocaleString()}, Disponible: $${portfolio.cash.toFixed(2)}`));
+        return;
+      }
     }
     
-  } else if (sellMatch) {
-    const [_, quantity, symbol] = sellMatch;
-    console.log(chalk.red(`\n📉 Ejecutando VENTA de ${quantity} ${symbol}...`));
-    
-    if (ibClient && nextOrderId) {
-      const contract = ib.contract.stock(symbol, 'SMART', 'USD');
-      const order = ib.order.market('SELL', parseInt(quantity));
-      
-      ibClient.placeOrder(nextOrderId, contract, order);
-      
-      ibClient.on('orderStatus', (orderId, status, filled, remaining, avgFillPrice) => {
-        if (orderId === nextOrderId) {
-          console.log(chalk.red(`✅ Orden ${orderId}: ${status} - ${filled}/${quantity} @ $${avgFillPrice}`));
-        }
-      });
-      
-      nextOrderId++;
+    if (side === 'SELL') {
+      const position = portfolio.positions.find(p => p.symbol === symbol);
+      if (!position || position.shares < quantity) {
+        console.log(chalk.red(`\n❌ No tienes suficientes acciones de ${symbol} para vender`));
+        return;
+      }
     }
     
-  } else {
-    console.log(chalk.blue('\n📊 No hay acción específica para ejecutar (HOLD)'));
+    // Crear contrato y orden
+    const contract = ib.contract.stock(symbol, 'SMART', 'USD');
+    let order;
+    
+    if (orderType === 'MARKET') {
+      order = ib.order.market(side, quantity);
+    } else {
+      console.error(chalk.red(`❌ Tipo de orden no soportado: ${orderType}`));
+      return;
+    }
+    
+    // Mostrar detalles de la orden
+    if (side === 'BUY') {
+      console.log(chalk.green(`\n📈 Ejecutando COMPRA: ${quantity} ${symbol} @ MARKET`));
+    } else {
+      console.log(chalk.red(`\n📉 Ejecutando VENTA: ${quantity} ${symbol} @ MARKET`));
+    }
+    
+    console.log(chalk.gray(`   Order ID: ${nextOrderId}`));
+    console.log(chalk.gray(`   Contrato: ${symbol} (SMART/USD)`));
+    
+    // Configurar listener para esta orden específica
+    const currentOrderId = nextOrderId;
+    
+    const orderStatusHandler = (orderId, status, filled, remaining, avgFillPrice) => {
+      if (orderId === currentOrderId) {
+        const color = side === 'BUY' ? 'green' : 'red';
+        console.log(chalk[color](`\n📋 Orden ${orderId}: ${status}`));
+        console.log(chalk.gray(`   Ejecutadas: ${filled}/${quantity}`));
+        if (avgFillPrice > 0) {
+          console.log(chalk.gray(`   Precio promedio: $${avgFillPrice}`));
+          console.log(chalk.gray(`   Valor total: $${(filled * avgFillPrice).toFixed(2)}`));
+        }
+        
+        if (status === 'Filled') {
+          console.log(chalk.green.bold('\n✅ ¡Orden ejecutada completamente!'));
+          // Remover el listener para evitar spam
+          ibClient.removeListener('orderStatus', orderStatusHandler);
+        }
+      }
+    };
+    
+    ibClient.on('orderStatus', orderStatusHandler);
+    
+    // Enviar orden a Interactive Brokers
+    ibClient.placeOrder(currentOrderId, contract, order);
+    
+    console.log(chalk.cyan('\n⏳ Orden enviada a Interactive Brokers...'));
+    console.log(chalk.gray('   Esperando confirmación...'));
+    
+    nextOrderId++;
+    
+  } catch (error) {
+    console.error(chalk.red('\n❌ Error ejecutando orden:'), error.message);
   }
 }
 
@@ -501,16 +642,18 @@ async function runAnalysisCycle() {
     const analysis = await analyzeMarketWithGPT(marketData, portfolio);
     
     // Mostrar análisis
-    const actionText = await displayAnalysis(analysis);
+    const tradingAction = await displayAnalysis(analysis);
     
     // Confirmar y ejecutar si se desea
-    if (actionText) {
-      const shouldExecute = await confirmExecution(actionText);
+    if (tradingAction && tradingAction.side !== 'HOLD') {
+      const shouldExecute = await confirmExecution(tradingAction);
       if (shouldExecute) {
-        await executeAction(actionText);
+        await executeAction(tradingAction);
       } else {
         console.log(chalk.gray('\n✋ Acción cancelada por el usuario'));
       }
+    } else if (tradingAction && tradingAction.side === 'HOLD') {
+      console.log(chalk.blue('\n📊 No hay acción para ejecutar en este momento'));
     }
     
   } catch (error) {
