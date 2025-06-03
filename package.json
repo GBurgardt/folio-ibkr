@@ -4,12 +4,16 @@
   "description": "Minimal Interactive Brokers API connection test",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "bot": "node trading-bot.js"
   },
   "dependencies": {
     "ib": "^0.2.9",
     "inquirer": "^8.2.6",
     "chalk": "^4.1.2",
-    "ora": "^5.4.1"
+    "ora": "^5.4.1",
+    "openai": "^4.52.7",
+    "axios": "^1.6.7",
+    "dotenv": "^16.4.5"
   }
 }
