@@ -57,7 +57,10 @@ async function connectToIB(config) {
     // Manejador de errores - filtrar mensajes informativos
     client.on('error', (err) => {
       const message = err.message.toLowerCase();
-      if (!message.includes('conexión') && !message.includes('funciona correctamente') && !message.includes('hmds')) {
+      if (!message.includes('conexión') && 
+          !message.includes('funciona correctamente') && 
+          !message.includes('hmds') &&
+          !message.includes('modo solo lectura')) {
         spinner.fail(`Error: ${err.message}`);
         reject(err);
       }
@@ -185,6 +188,7 @@ async function connectToIB(config) {
 async function main() {
   try {
     const config = await selectEnvironment();
+    console.clear(); // Limpiar después de seleccionar
     await connectToIB(config);
   } catch (error) {
     console.log(chalk.red('\n❌ Error: '), error.message);
