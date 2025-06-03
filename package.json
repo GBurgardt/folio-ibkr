@@ -7,6 +7,9 @@
     "start": "node index.js"
   },
   "dependencies": {
-    "ib": "^0.2.9"
+    "ib": "^0.2.9",
+    "inquirer": "^8.2.6",
+    "chalk": "^4.1.2",
+    "ora": "^5.4.1"
   }
 }
