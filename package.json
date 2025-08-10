@@ -2,13 +2,15 @@
   "name": "ib-connection-test",
   "version": "1.0.0",
   "description": "Minimal Interactive Brokers API connection test",
-  "main": "index.js",
+  "main": "cli.js",
   "scripts": {
-    "start": "node index.js",
-    "bot": "node trading-bot.js",
-    "analyst": "node market-analyst-bot.js",
-    "verify": "node verify-portfolio.js",
-    "check-orders": "node check-orders.js"
+    "start": "node cli.js",
+    "cli": "node cli.js",
+    "portfolio": "node projects/portfolio-tracker/index.js",
+    "bot": "node projects/trading-bot/index.js",
+    "analyst": "node projects/market-analyst/index.js",
+    "verify": "node projects/verify-portfolio/index.js",
+    "check-orders": "node projects/check-orders/index.js"
   },
   "dependencies": {
     "ib": "^0.2.9",

@@ -20,11 +20,17 @@ let portfolio = {
   accountId: null
 };
 let nextOrderId = null;
+let reqIdCounter = 10;
+
+function nextReqId() {
+  reqIdCounter += 1;
+  return reqIdCounter;
+}
 
 console.clear();
 console.log(chalk.blue.bold('🧠 Market Intelligence Analyst'));
 console.log(chalk.gray('━'.repeat(50)));
-console.log(chalk.cyan('Tu analista personal de mercado al estilo Elon Musk\n'));
+console.log(chalk.cyan('Tu analista personal de mercado al estilo Steve Jobs\n'));
 
 // Selector de ambiente
 async function selectEnvironment() {
@@ -114,9 +120,9 @@ async function searchTechNews() {
   }
 }
 
-// Fase 2: Análisis profundo con GPT-4.5
+// Fase 2: Análisis profundo con OpenAI
 async function analyzeMarketWithGPT(marketData, portfolio) {
-  const spinner = ora('🤖 Procesando inteligencia de mercado con GPT-4.5...').start();
+  const spinner = ora('🤖 Procesando inteligencia de mercado con OpenAI...').start();
   
   try {
     // Preparar contexto del portfolio con datos REALES y completos
@@ -170,14 +176,14 @@ ${news.slice(0, 2).map(n => `• ${n.headline}`).join('\n')}`;
 }).filter(s => s).join('\n')}
 `;
 
-    const systemPrompt = `Eres un analista de mercado brillante con el estilo pragmático y directo de Elon Musk.
+    const systemPrompt = `Eres dos versiones de Steve Jobs debatiendo entre sí con precisión quirúrgica y simplicidad extrema.
 Tu trabajo es analizar el mercado tecnológico y explicarlo de forma SIMPLE, DIRECTA y ACCIONABLE.
 Hablas en español, sin rodeos, yendo al grano. Usas analogías simples cuando es necesario.
 Piensas en términos de oportunidades y riesgos REALES, no teorías académicas.
 
 CRÍTICO: Tu respuesta DEBE estar estructurada en exactamente 5 secciones XML:
 1. <panorama> - Explicación pragmática del mercado hoy
-2. <monologo> - Reflexión interna de EXACTAMENTE 50 líneas numeradas
+2. <monologo> - Diálogo entre DOS Steve Jobs de EXACTAMENTE 100 líneas numeradas del 1 al 100. Cada línea inicia con "SJ1:" o "SJ2:", alternando de forma natural. Sé concreto, visual y minimalista.
 3. <conclusion> - Sugerencia final concreta
 4. <accion_estrategica> - Contexto y explicación de la estrategia
 5. <accion_ejecutable> - ÚNICAMENTE órdenes que se pueden ejecutar en Interactive Brokers
@@ -314,7 +320,7 @@ La jugada inteligente es usar 30% del efectivo disponible para aumentar exposici
 </accion_ejecutable>
 </analysis>`;
 
-    // Preparar input para GPT-4.5
+    // Preparar input para OpenAI
     const apiInput = [
       {
         "role": "system",
@@ -336,9 +342,9 @@ La jugada inteligente es usar 30% del efectivo disponible para aumentar exposici
       }
     ];
 
-    // Llamar a GPT-4.5
+    // Llamar a OpenAI con un modelo disponible
     const response = await openai.responses.create({
-      model: "gpt-4.5-preview",
+      model: "gpt-4o-mini",
       input: apiInput,
       text: {
         "format": {
@@ -347,8 +353,8 @@ La jugada inteligente es usar 30% del efectivo disponible para aumentar exposici
       },
       reasoning: {},
       tools: [],
-      temperature: 0.7,
-      max_output_tokens: 3000,
+      temperature: 0.4,
+      max_output_tokens: 4000,
       top_p: 0.9,
       store: true
     });
@@ -677,7 +683,7 @@ async function connectToIB(config) {
       spinner.succeed(`✅ Conectado a ${chalk[config.color].bold(config.name)}`);
       nextOrderId = orderId;
       
-      ibClient.reqAccountSummary(1, 'All', 'TotalCashValue,NetLiquidation');
+      ibClient.reqAccountSummary(nextReqId(), 'All', 'TotalCashValue,NetLiquidation');
       ibClient.reqPositions();
       
       setTimeout(resolve, 3000);
@@ -746,7 +752,7 @@ async function runAnalysisCycle() {
       
       // Siempre actualizar datos de cuenta (no falla como reqPositions)
       console.log(chalk.gray('   Actualizando efectivo y valor total...'));
-      ibClient.reqAccountSummary(Date.now(), 'All', 'TotalCashValue,NetLiquidation');
+      ibClient.reqAccountSummary(nextReqId(), 'All', 'TotalCashValue,NetLiquidation');
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Mostrar portfolio actualizado
