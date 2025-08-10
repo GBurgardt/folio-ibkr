@@ -122,7 +122,7 @@ async function searchTechNews() {
 
 // Fase 2: Análisis profundo con OpenAI
 async function analyzeMarketWithGPT(marketData, portfolio) {
-  const spinner = ora('🤖 Procesando inteligencia de mercado con OpenAI...').start();
+  const spinner = ora('🤖 Procesando inteligencia de mercado con OpenAI (GPT-5)...').start();
   
   try {
     // Preparar contexto del portfolio con datos REALES y completos
@@ -176,149 +176,69 @@ ${news.slice(0, 2).map(n => `• ${n.headline}`).join('\n')}`;
 }).filter(s => s).join('\n')}
 `;
 
-    const systemPrompt = `Eres dos versiones de Steve Jobs debatiendo entre sí con precisión quirúrgica y simplicidad extrema.
-Tu trabajo es analizar el mercado tecnológico y explicarlo de forma SIMPLE, DIRECTA y ACCIONABLE.
-Hablas en español, sin rodeos, yendo al grano. Usas analogías simples cuando es necesario.
-Piensas en términos de oportunidades y riesgos REALES, no teorías académicas.
+    const systemPrompt = `Eres dos versiones de Steve Jobs debatiendo entre sí con precisión quirúrgica y simplicidad extrema. Tu objetivo: responder en español, claro y pragmático, a esta pregunta del usuario: "¿Mis inversiones van bien o mal y qué decisión mínima puedo ejecutar ahora?". Usa estrictamente el contexto de portfolio y señales de mercado que te proporciono; no inventes datos.
 
-CRÍTICO: Tu respuesta DEBE estar estructurada en exactamente 5 secciones XML:
-1. <panorama> - Explicación pragmática del mercado hoy
-2. <monologo> - Diálogo entre DOS Steve Jobs de EXACTAMENTE 100 líneas numeradas del 1 al 100. Cada línea inicia con "SJ1:" o "SJ2:", alternando de forma natural. Sé concreto, visual y minimalista.
-3. <conclusion> - Sugerencia final concreta
-4. <accion_estrategica> - Contexto y explicación de la estrategia
-5. <accion_ejecutable> - ÚNICAMENTE órdenes que se pueden ejecutar en Interactive Brokers
+Formato de salida OBLIGATORIO: responde ÚNICAMENTE el siguiente XML con estas 5 secciones, sin texto adicional fuera del XML:
 
-FORMATO CRÍTICO PARA ACCION_EJECUTABLE:
-Debes responder con UNA de estas opciones EXACTAS:
+<analysis>
+  <panorama> … explicación breve del mercado hoy, con metáforas simples pero ancladas en señales … </panorama>
+  <monologo>
+    … diálogo de EXACTAMENTE 100 líneas numeradas del 1 al 100, alternando "SJ1:" y "SJ2:" al inicio de cada línea …
+  </monologo>
+  <conclusion> … sentencia directa: "vas bien/mal y por qué", en ≤3 frases … </conclusion>
+  <accion_estrategica> … el porqué de fondo y cómo pensar los próximos meses, sin órdenes … </accion_estrategica>
+  <accion_ejecutable>
+    … UNA sola acción inmediata ejecutable en Interactive Brokers …
+  </accion_ejecutable>
+</analysis>
 
-OPCIÓN 1 - COMPRAR:
-<accion_ejecutable>
-  <side>BUY</side>
-  <symbol>AAPL</symbol>
-  <quantity>10</quantity>
-  <order_type>MARKET</order_type>
-</accion_ejecutable>
+Reglas para <monologo>:
+- Deben ser 100 líneas exactas, numeradas 1 a 100.
+- Cada línea debe empezar con "SJ1:" o "SJ2:" alternando de forma natural.
+- Tono minimalista, visual y concreto. El monólogo es para pensar; NO da la orden.
 
-OPCIÓN 2 - VENDER:
-<accion_ejecutable>
-  <side>SELL</side>
-  <symbol>TSLA</symbol>
-  <quantity>5</quantity>
-  <order_type>MARKET</order_type>
-</accion_ejecutable>
+Reglas absolutas para <accion_ejecutable>:
+- Estructura permitida (elige SOLO una):
+  Opción BUY:
+    <accion_ejecutable>
+      <side>BUY</side>
+      <symbol>ONE_OF[AAPL,GOOGL,GOOG,MSFT,TSLA,NVDA,AMZN,META]</symbol>
+      <quantity>ENTERO_POSITIVO</quantity>
+      <order_type>MARKET</order_type>
+    </accion_ejecutable>
+  Opción SELL:
+    <accion_ejecutable>
+      <side>SELL</side>
+      <symbol>UNO_DE_LOS_TICKERS_QUE_POSEES</symbol>
+      <quantity>ENTERO_POSITIVO</quantity>
+      <order_type>MARKET</order_type>
+    </accion_ejecutable>
+  Opción HOLD:
+    <accion_ejecutable>
+      <side>HOLD</side>
+    </accion_ejecutable>
 
-OPCIÓN 3 - NO HACER NADA:
-<accion_ejecutable>
-  <side>HOLD</side>
-</accion_ejecutable>
+Validaciones OBLIGATORIAS previas a la acción:
+- BUY: (quantity × precio_estimado) ≤ efectivo disponible. Si no puedes estimar o no alcanza, elige HOLD.
+- SELL: quantity ≤ acciones realmente poseídas del símbolo seleccionado.
+- Si posees GOOG/GOOGL, mapea y usa el ticker que efectivamente figure en tus posiciones.
+- Si la acción no supera las validaciones, responde HOLD.
 
-REGLAS ABSOLUTAS PARA ACCION_EJECUTABLE:
-- JAMÁS pongas "establecer alerta", "monitorear", "esperar" en accion_ejecutable
-- side SOLO puede ser: BUY, SELL, HOLD (nada más)
-- symbol SOLO tickers válidos: AAPL, GOOGL, MSFT, TSLA, NVDA, AMZN, META
-- quantity SOLO números enteros positivos
-- order_type SOLO puede ser: MARKET (por ahora)
-- Si no hay acción inmediata que ejecutar → HOLD
-- Las estrategias van en accion_estrategica, NO en accion_ejecutable
+Criterios de decisión:
+- El usuario tiene efectivo limitado: si es insuficiente, evita BUY.
+- Solo vende si hay razón clara (rebalanceo, gestión de riesgo, tesis rota). Evita ventas por pánico.
+- Si no hay acción de calidad ejecutable con baja fricción, elige HOLD con una justificación breve y fuerte.
 
-CRÍTICO - VALIDACIONES OBLIGATORIAS:
-- Para BUY: El costo (quantity × precio_estimado) DEBE ser ≤ efectivo disponible
-- Para SELL: La quantity DEBE ser ≤ acciones que POSEE realmente
-- NUNCA sugieras vender más acciones de las que el usuario tiene
-- NUNCA sugieras comprar si no hay efectivo suficiente
-- USA LA INFORMACIÓN DEL PORTFOLIO que te proporciono arriba para validar
-
-EJEMPLOS DE LO QUE NO DEBES HACER:
-❌ Sugerir vender 10 GOOGL si solo tiene 5
-❌ Sugerir comprar $5000 en acciones si solo tiene $139 en efectivo
-❌ Ignorar las limitaciones reales del portfolio`;
+Estilo:
+- Español simple. Frases cortas. Sin jerga.
+- No incluyas emojis. No agregues texto fuera del XML.
+- Sé disciplinado con el formato para facilitar parsing.`;
 
     const userPrompt = `${portfolioContext}
 
 ${newsContext}
 
-Analiza esta situación y responde en el formato XML exacto que te especifiqué.
-
-EJEMPLO COMPLETO DE RESPUESTA ESPERADA:
-
-<analysis>
-<panorama>
-Hoy el mercado tech está mostrando señales mixtas interesantes. NVIDIA sigue en su rally imparable - básicamente están vendiendo palas en la fiebre del oro de la IA. Tesla por otro lado está tomando un respiro después de semanas alcistas, típica corrección saludable.
-
-Lo más relevante: Microsoft y Google están en una guerra silenciosa por dominar la IA empresarial. Es como la carrera espacial pero con modelos de lenguaje. Apple se mantiene lateral, esperando su momento para lanzar algo que cambie el juego - típico de ellos.
-</panorama>
-
-<monologo>
-1. Ok, mirando mi portfolio actual, tengo $${portfolio.cash.toFixed(2)} en efectivo.
-2. Eso es poder de fuego considerable en este mercado.
-3. Las posiciones que tengo están ${portfolio.positions.length > 0 ? 'generando retornos decentes' : 'por definirse aún'}.
-4. NVIDIA está cara, pero ¿cuándo no lo ha estado en los últimos 2 años?
-5. El que esperó el "pullback perfecto" se perdió 300% de ganancia.
-6. Tesla... siempre es una montaña rusa emocional.
-7. Pero Elon está ejecutando bien, Model 3 highland vendiendo como pan caliente.
-8. Microsoft es el gigante dormido que todos subestiman.
-9. Tienen Azure, tienen OpenAI, tienen Office - es un monopolio legal.
-10. Google está asustado y eso me gusta - el miedo los hace innovar.
-11. Bard era mediocre, Gemini está mejorando rápido.
-12. Apple... siempre tan misteriosos, pero el Vision Pro se viene.
-13. ¿Será otro iPad o otro Apple Watch? Apuesto por lo segundo.
-14. Mi portfolio necesita más exposición a IA pura.
-15. Pero no a precios estúpidos - hay que ser paciente.
-16. Amazon AWS está imprimiendo dinero mientras todos miran la tienda online.
-17. Es como Tesla - todos ven autos, yo veo software y energía.
-18. Meta pivoteó bien, Zuckerberg aprendió la lección del metaverso.
-19. Ahora están enfocados en IA generativa y eficiencia.
-20. Cortaron grasa, mejoraron márgenes - me gusta eso.
-21. El mercado general está nervioso con las tasas.
-22. Pero tech grande tiene tanto cash que les importa poco.
-23. Apple tiene $160B en efectivo - es un banco disfrazado.
-24. ¿Debería aumentar mi posición en alguna de estas?
-25. O tal vez es momento de tomar ganancias en las que subieron mucho.
-26. El FOMO es real, pero la disciplina paga más a largo plazo.
-27. Warren Buffett dice "sé codicioso cuando otros tienen miedo".
-28. Pero también dice "no pierdas dinero" - contradicción productiva.
-29. Mi estrategia: concentrarme en ganadores probados.
-30. No necesito encontrar el próximo Tesla, ya existe Tesla.
-31. NVIDIA es obvio pero por algo es obvio - están dominando.
-32. Microsoft es aburrido pero los aburridos pagan las cuentas.
-33. Google tiene el moat más grande: datos infinitos.
-34. ¿Y si esta corrección es la oportunidad que esperaba?
-35. Los débiles venden en pánico, los fuertes compran con convicción.
-36. Pero tampoco hay que atrapar cuchillos cayendo.
-37. Timing perfecto es imposible, direccionalidad correcta es suficiente.
-38. Mi cash está perdiendo contra inflación cada día.
-39. Pero también es munición para oportunidades.
-40. Tesla bajo $200 sería regalo, NVIDIA bajo $700 también.
-41. Microsoft sobre $400 ya es stretch, esperaría corrección.
-42. Amazon está en precio justo, podría escalar posición.
-43. Meta... aún no confío 100% en Zuckerberg pero está mejorando.
-44. Apple siempre es "caro" hasta que no lo es.
-45. El mercado tech es bipolar: euforia o pánico, nunca equilibrio.
-46. Ahora estamos en "cautela optimista" - el mejor momento.
-47. Ni muy caliente ni muy frío - Goldilocks para entrar.
-48. Mi movimiento debe ser calculado, no emocional.
-49. Pensar en horizonte 2-3 años, no 2-3 días.
-50. Decisión tomada: es momento de actuar, pero con cabeza fría.
-</monologo>
-
-<conclusion>
-El mercado está dándote una ventana de oportunidad en tech de calidad. No es momento de apostar todo, pero sí de incrementar exposición estratégicamente.
-
-RECOMENDACIÓN PRAGMÁTICA: 
-Con tu efectivo disponible, aprovecha la debilidad temporal en Amazon (AWS está infravalorado) o aumenta posición en Microsoft si tienes menos del 20% de tu portfolio ahí. Ambos son jugadas conservadoras con upside significativo.
-</conclusion>
-
-<accion_estrategica>
-La jugada inteligente es usar 30% del efectivo disponible para aumentar exposición a Amazon. AWS está infravalorado por el mercado, retail se está recuperando, y la integración de IA en Alexa será un game changer. Horizonte 18-24 meses con target de $200+ (25-30% upside esperado). Mantener 70% del cash para próximas oportunidades.
-</accion_estrategica>
-
-<accion_ejecutable>
-  <side>BUY</side>
-  <symbol>AMZN</symbol>
-  <quantity>15</quantity>
-  <order_type>MARKET</order_type>
-</accion_ejecutable>
-</analysis>`;
+Genera la respuesta en el XML exacto especificado. Recuerda: el <monologo> debe tener 100 líneas numeradas alternando SJ1/SJ2 y la <accion_ejecutable> debe respetar todas las validaciones.`;
 
     // Preparar input para OpenAI
     const apiInput = [
@@ -342,9 +262,9 @@ La jugada inteligente es usar 30% del efectivo disponible para aumentar exposici
       }
     ];
 
-    // Llamar a OpenAI con un modelo disponible
+    // Llamar a OpenAI con GPT-5
     const response = await openai.responses.create({
-      model: "gpt-4o-mini",
+      model: "gpt-5",
       input: apiInput,
       text: {
         "format": {
@@ -353,8 +273,8 @@ La jugada inteligente es usar 30% del efectivo disponible para aumentar exposici
       },
       reasoning: {},
       tools: [],
-      temperature: 0.4,
-      max_output_tokens: 4000,
+      temperature: 0.35,
+      max_output_tokens: 5000,
       top_p: 0.9,
       store: true
     });
@@ -444,26 +364,39 @@ async function displayAnalysis(analysis) {
   console.log(chalk.blue('═'.repeat(60)));
   console.log(chalk.white(analysis.panorama));
   
-  // MONÓLOGO
-  console.log(chalk.yellow('\n' + '═'.repeat(60)));
-  console.log(chalk.yellow.bold('🧠 MONÓLOGO INTERNO'));
-  console.log(chalk.yellow('═'.repeat(60)));
-  const monologoLines = analysis.monologo.split('\n');
-  monologoLines.forEach(line => {
-    console.log(chalk.gray(line));
-  });
-  
-  // CONCLUSIÓN
+  // Mostrar primero conclusión para claridad
   console.log(chalk.green('\n' + '═'.repeat(60)));
-  console.log(chalk.green.bold('💡 CONCLUSIÓN Y ESTRATEGIA'));
+  console.log(chalk.green.bold('✅ CONCLUSIÓN (DIRECTO AL PUNTO)'));
   console.log(chalk.green('═'.repeat(60)));
   console.log(chalk.white(analysis.conclusion));
-  
-  // ACCIÓN ESTRATÉGICA
-  console.log(chalk.magenta('\n' + '═'.repeat(60)));
-  console.log(chalk.magenta.bold('📋 CONTEXTO ESTRATÉGICO'));
-  console.log(chalk.magenta('═'.repeat(60)));
+
+  // Mostrar estrategia breve
+  console.log(chalk.magenta('\n' + '─'.repeat(60)));
+  console.log(chalk.magenta.bold('🧭 CONTEXTO ESTRATÉGICO'));
+  console.log(chalk.magenta('─'.repeat(60)));
   console.log(chalk.white(analysis.accionEstrategica));
+
+  // Preguntar si desea ver el monólogo de 100 líneas
+  const { showMonologue } = await inquirer.prompt([
+    {
+      type: 'confirm',
+      name: 'showMonologue',
+      message: '¿Mostrar el monólogo completo de 100 líneas (SJ1/SJ2)?',
+      default: false
+    }
+  ]);
+
+  if (showMonologue) {
+    console.log(chalk.yellow('\n' + '═'.repeat(60)));
+    console.log(chalk.yellow.bold('🧠 MONÓLOGO INTERNO (100 LÍNEAS)'));
+    console.log(chalk.yellow('═'.repeat(60)));
+    const monologoLines = analysis.monologo.split('\n');
+    monologoLines.forEach(line => {
+      console.log(chalk.gray(line));
+    });
+  }
+  
+  // Acción ejecutable
   
   // ACCIÓN EJECUTABLE
   console.log(chalk.cyan('\n' + '═'.repeat(60)));
