@@ -10,7 +10,8 @@
     "bot": "node projects/trading-bot/index.js",
     "analyst": "node projects/market-analyst/index.js",
     "verify": "node projects/verify-portfolio/index.js",
-    "check-orders": "node projects/check-orders/index.js"
+    "check-orders": "node projects/check-orders/index.js",
+    "buy-tsla": "node projects/buy-tsla/index.js"
   },
   "dependencies": {
     "ib": "^0.2.9",
