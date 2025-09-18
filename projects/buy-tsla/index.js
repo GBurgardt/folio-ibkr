@@ -19,8 +19,22 @@ let client;
 function createClient() {
   const instance = new ib({ clientId: IB_CLIENT_ID, host: IB_HOST, port: IB_PORT });
   instance.on('error', (err, data) => {
+    const code = data?.code;
+    const message = err?.message || String(err);
+    const infoCodes = new Set([2104, 2106, 2158]);
+    const ignoredCodes = new Set([300]);
+
+    if (code && ignoredCodes.has(code)) {
+      return;
+    }
+
+    if (code && infoCodes.has(code)) {
+      console.log(chalk.gray(`IB info: ${message}`));
+      return;
+    }
+
     const suffix = data ? ` (${JSON.stringify(data)})` : '';
-    console.error(chalk.red(`IB error: ${err?.message || err}${suffix}`));
+    console.error(chalk.red(`IB error: ${message}${suffix}`));
   });
   return instance;
 }
@@ -120,7 +134,13 @@ function fetchAccountFunds(instance) {
       }
     };
 
-    const onError = (err) => {
+    const onError = (err, data) => {
+      const code = data?.code;
+      const infoCodes = new Set([2104, 2106, 2158]);
+      if (code && infoCodes.has(code)) {
+        return;
+      }
+
       cleanup();
       reject(new Error(err?.message || 'Error solicitando resumen de cuenta'));
     };
@@ -182,10 +202,17 @@ function fetchMarketPrice(instance) {
       reject(new Error('IB cerró el snapshot sin precio válido para TSLA'));
     };
 
-    const onError = (err) => {
+    const onError = (err, data) => {
+      const code = data?.code;
+      const infoCodes = new Set([2104, 2106, 2158]);
+      if (code && infoCodes.has(code)) {
+        return;
+      }
+
       if (resolved) return;
       cleanup();
-      reject(new Error(err?.message || 'Error obteniendo datos de mercado de TSLA'));
+      const message = err?.message || 'Error obteniendo datos de mercado de TSLA';
+      reject(new Error(message));
     };
 
     const cleanup = () => {
@@ -299,7 +326,27 @@ async function main() {
     priceSpinner.succeed(`Precio ${market.fieldLabel} de ${SYMBOL}: $${market.price.toFixed(2)}`);
   } catch (error) {
     priceSpinner.fail('Error obteniendo precio de mercado');
-    throw error;
+    console.log(chalk.yellow(`Aviso: ${error.message}`));
+
+    const answer = await inquirer.prompt([
+      {
+        type: 'input',
+        name: 'manualPrice',
+        message: `Ingresa manualmente el precio estimado por acción de ${SYMBOL} (por ejemplo 200.00):`,
+        validate: (value) => {
+          const parsed = Number(value);
+          if (!Number.isFinite(parsed) || parsed <= 0) {
+            return 'Introduce un número mayor a 0';
+          }
+          return true;
+        }
+      }
+    ]);
+
+    market = {
+      price: Number(answer.manualPrice),
+      fieldLabel: 'precio ingresado manualmente'
+    };
   }
 
   const cashToUse = account.availableFunds ?? account.totalCashValue ?? 0;
