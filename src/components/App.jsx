@@ -1,6 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Box, useApp, useInput } from 'ink';
 
+function debug(...args) {
+  if (global.DEBUG_MODE) {
+    const timestamp = new Date().toISOString().split('T')[1].slice(0, -1);
+    console.log(`[${timestamp}] [APP]`, ...args);
+  }
+}
+
 import { useIBConnection } from '../hooks/useIBConnection.js';
 import { usePortfolio } from '../hooks/usePortfolio.js';
 import { useMarketData } from '../hooks/useMarketData.js';
@@ -18,6 +25,7 @@ export function App({ paperTrading = false }) {
   const { exit } = useApp();
 
   const port = paperTrading ? 7497 : 7496;
+  debug('App initialized with paperTrading:', paperTrading, 'port:', port);
   const {
     status: connectionStatus,
     error: connectionError,
@@ -56,20 +64,34 @@ export function App({ paperTrading = false }) {
   const [sellData, setSellData] = useState(null);
   const [lastOrderResult, setLastOrderResult] = useState(null);
 
-  // Conectar al iniciar
+  // Conectar al iniciar - SOLO UNA VEZ
+  const hasConnectedRef = React.useRef(false);
   useEffect(() => {
+    if (hasConnectedRef.current) {
+      debug('Already connected once, skipping');
+      return;
+    }
+    hasConnectedRef.current = true;
+    debug('Initial connect useEffect triggered (first time only)');
     connect();
-    return () => disconnect();
-  }, [connect, disconnect]);
+    return () => {
+      debug('Cleanup: disconnecting');
+      disconnect();
+    };
+  }, []); // Sin dependencias para que solo corra una vez
 
   // Cambiar pantalla según estado de conexión
   useEffect(() => {
+    debug('Connection status changed:', connectionStatus, 'Error:', connectionError);
+    debug('Current screen:', screen);
     if (connectionStatus === 'connected' && screen === 'connecting') {
+      debug('Transitioning to portfolio screen');
       setScreen('portfolio');
     } else if (connectionStatus === 'error') {
+      debug('Transitioning to error screen');
       setScreen('error');
     }
-  }, [connectionStatus, screen]);
+  }, [connectionStatus, screen, connectionError]);
 
   // Cargar precios de posiciones al conectar
   useEffect(() => {

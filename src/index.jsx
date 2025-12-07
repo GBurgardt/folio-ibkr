@@ -8,6 +8,18 @@ import App from './components/App.jsx';
 const args = process.argv.slice(2);
 const paperTrading = args.includes('--paper') || args.includes('-p');
 const showHelp = args.includes('--help') || args.includes('-h');
+const debugMode = args.includes('--debug') || args.includes('-d');
+
+// Export debug mode globally
+global.DEBUG_MODE = debugMode;
+
+function debug(...args) {
+  if (debugMode) {
+    const timestamp = new Date().toISOString().split('T')[1].slice(0, -1);
+    console.log(`[${timestamp}] [DEBUG]`, ...args);
+  }
+}
+global.debug = debug;
 
 if (showHelp) {
   console.log(`
@@ -19,6 +31,7 @@ if (showHelp) {
 
   Opciones:
     --paper, -p    Usar paper trading (puerto 7497)
+    --debug, -d    Modo debug con logs detallados
     --help, -h     Mostrar esta ayuda
 
   Navegación:

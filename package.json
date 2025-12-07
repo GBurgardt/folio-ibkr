@@ -10,6 +10,11 @@
   },
   "scripts": {
     "start": "tsx src/index.jsx",
+    "start:debug": "tsx src/index.jsx --debug",
+    "start:paper": "tsx src/index.jsx --paper",
+    "start:paper:debug": "tsx src/index.jsx --paper --debug",
+    "diagnose": "node diagnose-tws.js",
+    "diagnose:paper": "node diagnose-tws.js 7497",
     "dev": "tsx --watch src/index.jsx",
     "old": "node cli.js",
     "portfolio": "node projects/portfolio-tracker/index.js",
