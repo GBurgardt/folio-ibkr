@@ -10,6 +10,129 @@ const debug = (...args) => {
   }
 };
 
+/**
+ * Parse date from IB format to readable format
+ * IB sends dates like "20231215" for daily bars or "20231215 14:30:00" for hourly
+ */
+const parseIBDate = (dateStr) => {
+  if (!dateStr) return null;
+
+  // Handle "yyyyMMdd HH:mm:ss" format (hourly bars)
+  if (dateStr.includes(' ')) {
+    const [datePart, timePart] = dateStr.split(' ');
+    const year = parseInt(datePart.slice(0, 4));
+    const month = parseInt(datePart.slice(4, 6)) - 1;
+    const day = parseInt(datePart.slice(6, 8));
+    const [hours, minutes] = timePart.split(':').map(Number);
+    return new Date(year, month, day, hours, minutes);
+  }
+
+  // Handle "yyyyMMdd" format (daily bars)
+  const year = parseInt(dateStr.slice(0, 4));
+  const month = parseInt(dateStr.slice(4, 6)) - 1;
+  const day = parseInt(dateStr.slice(6, 8));
+  return new Date(year, month, day);
+};
+
+/**
+ * Format date for X axis based on period
+ */
+const formatDateForAxis = (date, period) => {
+  if (!date) return '';
+
+  const days = ['Dom', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'];
+  const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
+  switch (period) {
+    case '1W':
+      // For 1 week: show day name (Lun, Mar, etc)
+      return days[date.getDay()];
+    case '1M':
+      // For 1 month: show day number
+      return `${date.getDate()}`;
+    case '3M':
+    case '6M':
+      // For 3-6 months: show "day mon" (15 Dic)
+      return `${date.getDate()} ${months[date.getMonth()]}`;
+    case '1Y':
+      // For 1 year: show month name
+      return months[date.getMonth()];
+    default:
+      return `${date.getDate()}/${date.getMonth() + 1}`;
+  }
+};
+
+/**
+ * Generate X axis labels for the chart
+ * Returns object with axis line and first/last date for context
+ */
+const generateXAxisLabels = (historicalData, chartWidth, period) => {
+  if (!historicalData || historicalData.length === 0) return { axisLine: '', firstDate: null, lastDate: null };
+
+  const dates = historicalData.map(bar => parseIBDate(bar.date));
+  const firstDate = dates[0];
+  const lastDate = dates[dates.length - 1];
+
+  // Sample dates to fit chart width
+  let sampledDates = dates;
+  if (dates.length > chartWidth) {
+    const step = dates.length / chartWidth;
+    sampledDates = [];
+    for (let i = 0; i < chartWidth; i++) {
+      const index = Math.min(Math.floor(i * step), dates.length - 1);
+      sampledDates.push(dates[index]);
+    }
+  }
+
+  // Show just first, middle, and last date for cleaner look
+  const numLabels = 3;
+  const labelPositions = [];
+
+  for (let i = 0; i < numLabels; i++) {
+    const dataIndex = Math.floor((i / (numLabels - 1)) * (sampledDates.length - 1));
+    const charPosition = Math.floor((i / (numLabels - 1)) * chartWidth);
+    labelPositions.push({
+      position: charPosition,
+      date: sampledDates[dataIndex],
+    });
+  }
+
+  // Build the axis string
+  // Y axis padding: "$XXX.XX" padStart(10) + " ┤" = ~11 chars
+  const yAxisPadding = 11;
+
+  // Create array of spaces for the axis
+  const axisChars = new Array(chartWidth + yAxisPadding).fill(' ');
+
+  // Place labels
+  for (let i = 0; i < labelPositions.length; i++) {
+    const label = labelPositions[i];
+    const labelText = formatDateForAxis(label.date, period);
+    const startPos = yAxisPadding + label.position;
+
+    // Center the label on the position (except first and last)
+    let adjustedStart = startPos;
+    if (i === 0) {
+      adjustedStart = yAxisPadding; // First label at start
+    } else if (i === labelPositions.length - 1) {
+      adjustedStart = Math.max(yAxisPadding, startPos - labelText.length); // Last label at end
+    } else {
+      adjustedStart = Math.max(yAxisPadding, startPos - Math.floor(labelText.length / 2)); // Center
+    }
+
+    // Place label characters
+    for (let j = 0; j < labelText.length && adjustedStart + j < axisChars.length; j++) {
+      axisChars[adjustedStart + j] = labelText[j];
+    }
+  }
+
+  return {
+    axisLine: axisChars.join(''),
+    firstDate,
+    lastDate,
+  };
+};
+
 export function ChartScreen({
   symbol,
   position, // Optional - only if user owns the stock
@@ -32,9 +155,9 @@ export function ChartScreen({
 
   // Get terminal width for chart sizing
   const terminalWidth = stdout?.columns || 80;
-  const chartWidth = Math.min(terminalWidth - 10, 120); // Max 120, with padding
+  const chartWidth = Math.min(terminalWidth - 15, 100); // Reduced max, with padding for labels
 
-  debug(`ChartScreen render: symbol=${symbol} period=${selectedPeriod} hasData=${!!historicalData} loading=${loading}`);
+  debug(`ChartScreen render: symbol=${symbol} period=${selectedPeriod} hasData=${!!historicalData} loading=${loading} currentPrice=${currentPrice}`);
 
   // Handle period change
   useEffect(() => {
@@ -48,13 +171,13 @@ export function ChartScreen({
       debug('Back navigation triggered');
       onBack?.();
     } else if (key.upArrow) {
-      // Previous period (zoom out)
+      // More time (zoom out)
       const currentIndex = PERIOD_KEYS.indexOf(selectedPeriod);
       if (currentIndex < PERIOD_KEYS.length - 1) {
         setSelectedPeriod(PERIOD_KEYS[currentIndex + 1]);
       }
     } else if (key.downArrow) {
-      // Next period (zoom in)
+      // Less time (zoom in)
       const currentIndex = PERIOD_KEYS.indexOf(selectedPeriod);
       if (currentIndex > 0) {
         setSelectedPeriod(PERIOD_KEYS[currentIndex - 1]);
@@ -122,7 +245,7 @@ export function ChartScreen({
 
     try {
       const chart = asciichart.plot(chartData.prices, {
-        height: 10,
+        height: 12, // Slightly taller for better detail
         colors: [color],
         format: (x) => formatMoney(x).padStart(10),
       });
@@ -135,46 +258,46 @@ export function ChartScreen({
     }
   }, [chartData]);
 
-  // Calculate if current price is above or below purchase price
-  const priceVsAvgCost = useMemo(() => {
-    if (!chartData || !avgCost) return null;
-    const diff = chartData.last - avgCost;
-    const diffPercent = avgCost > 0 ? (diff / avgCost) * 100 : 0;
-    return { diff, diffPercent, isAbove: diff >= 0 };
-  }, [chartData, avgCost]);
+  // Generate X axis
+  const xAxisData = useMemo(() => {
+    return generateXAxisLabels(historicalData, chartWidth, selectedPeriod);
+  }, [historicalData, chartWidth, selectedPeriod]);
 
-  // Period selector
-  const periodSelector = PERIOD_KEYS.map(p => {
-    const isSelected = p === selectedPeriod;
-    return isSelected ? `[${p}]` : ` ${p} `;
-  }).join('  ');
+  // Calculate gain/loss from purchase price
+  const positionGain = useMemo(() => {
+    if (!avgCost || !currentPrice || !quantity) return null;
+    const totalCost = avgCost * quantity;
+    const currentValue = currentPrice * quantity;
+    const gain = currentValue - totalCost;
+    const gainPercent = totalCost > 0 ? (gain / totalCost) * 100 : 0;
+    return { gain, gainPercent, currentValue, totalCost };
+  }, [avgCost, currentPrice, quantity]);
 
-  // Loading state
+  // Display price - prefer currentPrice, fallback to last historical
+  const displayPrice = currentPrice || chartData?.last;
+
+  // Loading state - minimal
   if (loading) {
     return (
       <Box flexDirection="column" padding={1}>
-        <Box borderStyle="round" borderColor="blue" paddingX={2} paddingY={1}>
+        <Box justifyContent="space-between">
           <Text bold color="white">{symbol}</Text>
-          <Text color="gray">  Histórico</Text>
-        </Box>
-        <Box marginTop={2} justifyContent="center">
-          <Text color="yellow">Cargando histórico de {PERIODS[selectedPeriod].label}...</Text>
+          <Text color="gray">cargando...</Text>
         </Box>
       </Box>
     );
   }
 
-  // Error state
+  // Error state - minimal
   if (error) {
     return (
       <Box flexDirection="column" padding={1}>
-        <Box borderStyle="round" borderColor="red" paddingX={2} paddingY={1}>
-          <Text bold color="white">{symbol}</Text>
-          <Text color="gray">  Histórico</Text>
+        <Text bold color="white">{symbol}</Text>
+        <Box marginTop={1}>
+          <Text color="red">{error}</Text>
         </Box>
-        <Box marginTop={2} flexDirection="column" alignItems="center">
-          <Text color="red">Error: {error}</Text>
-          <Text color="gray" marginTop={1}>[←] Volver</Text>
+        <Box marginTop={1}>
+          <Text color="gray">← volver</Text>
         </Box>
       </Box>
     );
@@ -184,15 +307,12 @@ export function ChartScreen({
   if (!chartData || !chartRender) {
     return (
       <Box flexDirection="column" padding={1}>
-        <Box borderStyle="round" borderColor="blue" paddingX={2} paddingY={1}>
-          <Text bold color="white">{symbol}</Text>
-          <Text color="gray">  Histórico</Text>
-        </Box>
-        <Box marginTop={2} justifyContent="center">
-          <Text color="gray">No hay datos históricos disponibles</Text>
+        <Text bold color="white">{symbol}</Text>
+        <Box marginTop={1}>
+          <Text color="gray">Sin datos históricos</Text>
         </Box>
         <Box marginTop={1}>
-          <Text color="gray">[←] Volver</Text>
+          <Text color="gray">← volver</Text>
         </Box>
       </Box>
     );
@@ -200,74 +320,57 @@ export function ChartScreen({
 
   const isPositive = chartData.change >= 0;
   const changeColor = isPositive ? 'green' : 'red';
-  const changeSign = isPositive ? '+' : '';
+  const changeArrow = isPositive ? '▲' : '▼';
 
   return (
     <Box flexDirection="column" padding={1}>
-      {/* Header */}
-      <Box
-        borderStyle="round"
-        borderColor="blue"
-        paddingX={2}
-        paddingY={1}
-        justifyContent="space-between"
-      >
+      {/* Header: Symbol on left, Price + Change on right */}
+      <Box justifyContent="space-between" marginBottom={1}>
+        <Text bold color="white">{symbol}</Text>
         <Box>
-          <Text bold color="white">{symbol}</Text>
-          {owned && (
-            <Text color="gray">   {quantity} acc @ {formatMoney(avgCost)}</Text>
-          )}
+          <Text bold color="white">{formatMoney(displayPrice)}</Text>
+          <Text color={changeColor}> {changeArrow} {formatPercent(Math.abs(chartData.changePercent))}</Text>
         </Box>
-        <Text color={changeColor} bold>
-          {changeSign}{formatPercent(chartData.changePercent)} en {PERIODS[selectedPeriod].label}
-        </Text>
       </Box>
 
-      {/* Chart */}
-      <Box
-        flexDirection="column"
-        marginTop={1}
-        borderStyle="single"
-        borderColor="gray"
-        paddingX={1}
-        paddingY={1}
-      >
+      {/* Chart - no border, clean */}
+      <Box flexDirection="column">
         <Text>{chartRender}</Text>
 
-        {/* Purchase price indicator */}
-        {avgCost && priceVsAvgCost && (
-          <Box marginTop={1}>
-            <Text color="yellow">
-              ─ Tu compra: {formatMoney(avgCost)}
-              {priceVsAvgCost.isAbove ? (
-                <Text color="green"> (arriba {formatPercent(priceVsAvgCost.diffPercent)})</Text>
-              ) : (
-                <Text color="red"> (abajo {formatPercent(Math.abs(priceVsAvgCost.diffPercent))})</Text>
-              )}
-            </Text>
-          </Box>
-        )}
-
-        {/* Min/Max */}
-        <Box marginTop={1} justifyContent="space-between">
-          <Text color="gray">Min: {formatMoney(chartData.min)}</Text>
-          <Text color="gray">Max: {formatMoney(chartData.max)}</Text>
-        </Box>
+        {/* X Axis with dates */}
+        <Text color="gray">{xAxisData.axisLine}</Text>
       </Box>
 
-      {/* Period selector & controls */}
-      <Box
-        borderStyle="single"
-        borderColor="gray"
-        marginTop={1}
-        paddingX={2}
-        paddingY={1}
-        justifyContent="space-between"
-      >
-        <Text>{periodSelector}</Text>
-        <Text color="gray">
-          [↑↓] Período  [b] Comprar{owned ? '  [s] Vender' : ''}  [←] Volver
-        </Text>
+      {/* Position info - only if user owns the stock, clean format */}
+      {owned && positionGain && (
+        <Box marginTop={1}>
+          <Text color="gray">{quantity} × </Text>
+          <Text color="white">{formatMoney(avgCost)}</Text>
+          <Text color="gray">  →  </Text>
+          <Text color={positionGain.gain >= 0 ? 'green' : 'red'}>
+            {positionGain.gain >= 0 ? '+' : ''}{formatMoney(positionGain.gain)} ({positionGain.gain >= 0 ? '+' : ''}{formatPercent(positionGain.gainPercent)})
+          </Text>
+        </Box>
+      )}
+
+      {/* Footer: Period on left, Actions on right - subtle */}
+      <Box marginTop={1} justifyContent="space-between">
+        <Box>
+          <Text color="white">{PERIODS[selectedPeriod].label}</Text>
+          <Text color="gray">  ↑↓</Text>
+        </Box>
+        <Box>
+          <Text color="gray">b </Text>
+          <Text color="white">comprar</Text>
+          {owned && (
+            <>
+              <Text color="gray">   s </Text>
+              <Text color="white">vender</Text>
+            </>
+          )}
+          <Text color="gray">   ← </Text>
+          <Text color="white">volver</Text>
+        </Box>
       </Box>
     </Box>
   );
