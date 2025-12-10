@@ -22,7 +22,22 @@ error() {
   exit 1
 }
 
-# 1. Local Commit & Push
+# 1. Define Puky Wrapper (ported from .zshrc)
+function puky() {
+    if [ $# -eq 0 ]; then
+        ssh puky
+    else
+        # Argument escaping for remote execution
+        local remote_cmd=""
+        for arg in "$@"; do
+            remote_cmd="$remote_cmd $(printf %q "$arg")"
+        done
+        # Force pseudo-terminal for interactive programs/profiles
+        ssh puky -t "source ~/.zshrc; $remote_cmd"
+    fi
+}
+
+# 2. Local Commit & Push
 log "Syncing local state..."
 
 # Add all changes and commit if necessary
