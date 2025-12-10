@@ -1,14 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import TextInput from 'ink-text-input';
 import { formatMoney } from '../utils/format.js';
-import StatusBar from './StatusBar.jsx';
 
 export function BuyScreen({
   symbol,
   currentPrice,
+  isEstimatedPrice = false,
   priceLoading,
   availableCash,
+  pendingOrdersCount = 0,
   onConfirm,
   onCancel,
 }) {
@@ -16,8 +17,10 @@ export function BuyScreen({
   const [step, setStep] = useState('input'); // input, confirm
   const [error, setError] = useState(null);
 
-  const maxShares = currentPrice > 0 ? Math.floor(availableCash / currentPrice) : 0;
-  const estimatedCost = quantity ? parseInt(quantity, 10) * currentPrice : 0;
+  // Apply 5% buffer to match IB's conservative validation (commissions, spread, safety margin)
+  const ORDER_COST_BUFFER = 1.05;
+  const maxShares = currentPrice > 0 ? Math.floor(availableCash / (currentPrice * ORDER_COST_BUFFER)) : 0;
+  const estimatedCost = quantity ? parseInt(quantity, 10) * currentPrice * ORDER_COST_BUFFER : 0;
 
   const handleSubmit = () => {
     const qty = quantity.toLowerCase() === 'max' ? maxShares : parseInt(quantity, 10);
@@ -80,14 +83,13 @@ export function BuyScreen({
         >
           <Text color="red">No se pudo obtener el precio de {symbol}</Text>
         </Box>
-        <StatusBar screen="buy" />
       </Box>
     );
   }
 
   if (step === 'confirm') {
     const qty = parseInt(quantity, 10);
-    const total = qty * currentPrice;
+    const total = qty * currentPrice * ORDER_COST_BUFFER;
 
     return (
       <Box flexDirection="column" padding={1}>
@@ -117,16 +119,28 @@ export function BuyScreen({
 
           <Box justifyContent="space-between">
             <Text color="gray">Precio aprox:</Text>
-            <Text>{formatMoney(currentPrice)}</Text>
+            <Text color={isEstimatedPrice ? 'yellow' : undefined}>
+              {isEstimatedPrice ? '~' : ''}{formatMoney(currentPrice)}
+            </Text>
           </Box>
 
           <Box justifyContent="space-between">
             <Text color="gray">Total estimado:</Text>
             <Text bold color="white">{formatMoney(total)}</Text>
           </Box>
+
+          <Text color="gray" dimColor>Incluye 5% margen para comisiones</Text>
+
+          {isEstimatedPrice && (
+            <Text color="yellow" dimColor>Precio de cierre (mercado cerrado)</Text>
+          )}
         </Box>
 
-        <StatusBar screen="confirm" />
+        {/* Footer */}
+        <Box marginTop={1}>
+          <Text color="gray">Enter </Text>
+          <Text color="white">confirmar</Text>
+        </Box>
       </Box>
     );
   }
@@ -154,13 +168,21 @@ export function BuyScreen({
         gap={1}
       >
         <Box justifyContent="space-between">
-          <Text color="gray">Cash disponible:</Text>
+          <Text color="gray">Cash disponible{pendingOrdersCount > 0 ? '*' : ''}:</Text>
           <Text color="green">{formatMoney(availableCash)}</Text>
         </Box>
 
+        {pendingOrdersCount > 0 && (
+          <Box>
+            <Text color="gray" dimColor>*descontando {pendingOrdersCount} orden{pendingOrdersCount > 1 ? 'es' : ''} pendiente{pendingOrdersCount > 1 ? 's' : ''}</Text>
+          </Box>
+        )}
+
         <Box justifyContent="space-between">
-          <Text color="gray">Precio actual:</Text>
-          <Text>{formatMoney(currentPrice)}</Text>
+          <Text color="gray">{isEstimatedPrice ? 'Precio estimado:' : 'Precio actual:'}</Text>
+          <Text color={isEstimatedPrice ? 'yellow' : undefined}>
+            {isEstimatedPrice ? '~' : ''}{formatMoney(currentPrice)}
+          </Text>
         </Box>
 
         <Box justifyContent="space-between">
@@ -192,7 +214,7 @@ export function BuyScreen({
         {quantity && !isNaN(parseInt(quantity, 10)) && (
           <Box>
             <Text color="gray">
-              Costo estimado: {formatMoney(parseInt(quantity, 10) * currentPrice)}
+              Costo estimado: {formatMoney(parseInt(quantity, 10) * currentPrice * ORDER_COST_BUFFER)}
             </Text>
           </Box>
         )}
@@ -202,7 +224,11 @@ export function BuyScreen({
         )}
       </Box>
 
-      <StatusBar screen="buy" />
+      {/* Footer */}
+      <Box marginTop={1}>
+        <Text color="gray">Enter </Text>
+        <Text color="white">continuar</Text>
+      </Box>
     </Box>
   );
 }

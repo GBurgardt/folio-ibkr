@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Box, useApp, useInput } from 'ink';
 
 function debug(...args) {
@@ -8,11 +8,52 @@ function debug(...args) {
   }
 }
 
+/**
+ * Calculate cash reserved by pending BUY orders
+ * This prevents users from placing orders they can't afford
+ *
+ * We use a 1.05 (5%) buffer because:
+ * - IB may use different prices (bid/ask spread)
+ * - IB includes estimated commissions (~$1 per order)
+ * - IB may have additional safety margins
+ */
+const ORDER_COST_BUFFER = 1.05; // 5% safety margin
+
+function calculateReservedCash(pendingOrders, prices, getHistoricalData, chartPeriod) {
+  if (!pendingOrders || pendingOrders.length === 0) return 0;
+
+  let reserved = 0;
+  for (const order of pendingOrders) {
+    if (order.action !== 'BUY') continue;
+
+    // Try to get price: realtime > historical > 0
+    let price = prices[order.symbol]?.price;
+    if (!price) {
+      const historicalData = getHistoricalData?.(order.symbol, chartPeriod);
+      if (historicalData?.length > 0) {
+        price = historicalData[historicalData.length - 1].close;
+      }
+    }
+
+    if (price) {
+      // Apply buffer to match IB's conservative calculation
+      const estimatedCost = order.quantity * price * ORDER_COST_BUFFER;
+      reserved += estimatedCost;
+      debug(`Reserved cash for ${order.symbol}: ${order.quantity} × $${price} × ${ORDER_COST_BUFFER} = $${estimatedCost.toFixed(2)}`);
+    }
+  }
+
+  debug(`Total reserved cash from pending orders: $${reserved.toFixed(2)}`);
+  return reserved;
+}
+
 import { useIBConnection } from '../hooks/useIBConnection.js';
 import { usePortfolio } from '../hooks/usePortfolio.js';
 import { useMarketData } from '../hooks/useMarketData.js';
 import { useTrade } from '../hooks/useTrade.js';
 import { useHistoricalData, DEFAULT_PERIOD } from '../hooks/useHistoricalData.js';
+import { useTradeHistory } from '../hooks/useTradeHistory.js';
+import { useOrders } from '../hooks/useOrders.js';
 
 import { Loading, ConnectionError, OrderResult } from './Loading.jsx';
 import Portfolio from './Portfolio.jsx';
@@ -20,8 +61,22 @@ import BuyScreen from './BuyScreen.jsx';
 import SellScreen from './SellScreen.jsx';
 import SearchScreen from './SearchScreen.jsx';
 import ChartScreen from './ChartScreen.jsx';
+import ActivityScreen from './ActivityScreen.jsx';
+import OrdersScreen from './OrdersScreen.jsx';
+import Breadcrumb from './Breadcrumb.jsx';
 
-// Screens: connecting, error, portfolio, chart, buy, sell, search, order-result
+// Screen name translations for breadcrumb and back button
+const SCREEN_NAMES = {
+  portfolio: 'inicio',
+  chart: 'gráfico',
+  buy: 'comprar',
+  sell: 'vender',
+  search: 'buscar',
+  activity: 'actividad',
+  orders: 'órdenes',
+};
+
+// Screens: connecting, error, portfolio, chart, buy, sell, search, order-result, activity, orders
 export function App({ paperTrading = false }) {
   const { exit } = useApp();
 
@@ -43,7 +98,7 @@ export function App({ paperTrading = false }) {
     computed,
     loading: portfolioLoading,
     refresh: refreshPortfolio,
-  } = usePortfolio(getClient, isConnected);
+  } = usePortfolio(getClient, isConnected, accountId);
 
   const {
     prices,
@@ -67,7 +122,63 @@ export function App({ paperTrading = false }) {
     prefetch: prefetchHistorical,
   } = useHistoricalData(getClient, isConnected);
 
-  const [screen, setScreen] = useState('connecting');
+  const {
+    trades,
+    recordBuy,
+    recordSell,
+    getFirstPurchaseDate,
+    calculateBuyPerformance,
+    calculateSellPerformance,
+  } = useTradeHistory();
+
+  const {
+    orders: pendingOrders,
+    loading: ordersLoading,
+    cancelOrder,
+    pendingCount,
+  } = useOrders(getClient, isConnected);
+
+  // ═══════════════════════════════════════════════════════════════
+  // NAVIGATION STACK SYSTEM
+  // ═══════════════════════════════════════════════════════════════
+  // The stack remembers where the user has been.
+  // 'connecting' and 'error' are outside the normal navigation flow.
+  // 'portfolio' is always at the bottom of the stack.
+  // 'order-result' clears the stack and returns to portfolio.
+  const [navStack, setNavStack] = useState(['connecting']);
+
+  // Current screen is the top of the stack
+  const screen = navStack[navStack.length - 1];
+
+  // Navigation functions
+  const navigateTo = useCallback((newScreen) => {
+    debug('navigateTo:', newScreen, 'from stack:', navStack);
+    setNavStack(prev => [...prev, newScreen]);
+  }, [navStack]);
+
+  const navigateBack = useCallback(() => {
+    debug('navigateBack, current stack:', navStack);
+    if (navStack.length > 1) {
+      setNavStack(prev => prev.slice(0, -1));
+    }
+  }, [navStack]);
+
+  const navigateHome = useCallback(() => {
+    debug('navigateHome - clearing stack');
+    setNavStack(['portfolio']);
+    // Clear transient state
+    setChartSymbol(null);
+    setChartPosition(null);
+    setBuySymbol(null);
+    setSellData(null);
+  }, []);
+
+  // Initialize navigation when connected
+  const initializeNavigation = useCallback(() => {
+    debug('Initializing navigation to portfolio');
+    setNavStack(['portfolio']);
+  }, []);
+
   const [chartPeriod, setChartPeriod] = useState(DEFAULT_PERIOD);
   const [chartSymbol, setChartSymbol] = useState(null); // Symbol being viewed in chart
   const [chartPosition, setChartPosition] = useState(null); // Position if owned
@@ -97,12 +208,12 @@ export function App({ paperTrading = false }) {
     debug('Current screen:', screen);
     if (connectionStatus === 'connected' && screen === 'connecting') {
       debug('Transitioning to portfolio screen');
-      setScreen('portfolio');
+      initializeNavigation();
     } else if (connectionStatus === 'error') {
       debug('Transitioning to error screen');
-      setScreen('error');
+      setNavStack(['error']);
     }
-  }, [connectionStatus, screen, connectionError]);
+  }, [connectionStatus, screen, connectionError, initializeNavigation]);
 
   // Cargar precios de posiciones al conectar
   useEffect(() => {
@@ -112,6 +223,29 @@ export function App({ paperTrading = false }) {
       });
     }
   }, [isConnected, positions, fetchPrice]);
+
+  // Cargar precios de órdenes pendientes (para calcular cash reservado)
+  useEffect(() => {
+    if (isConnected && pendingOrders.length > 0) {
+      debug('Fetching prices for pending orders to calculate reserved cash');
+      pendingOrders.forEach(order => {
+        fetchPrice(order.symbol).catch(() => {});
+        // Also fetch historical as fallback
+        fetchHistorical(order.symbol, chartPeriod).catch(() => {});
+      });
+    }
+  }, [isConnected, pendingOrders, fetchPrice, fetchHistorical, chartPeriod]);
+
+  // Calculate effective cash (total cash minus reserved by pending BUY orders)
+  const reservedCash = useMemo(() => {
+    return calculateReservedCash(pendingOrders, prices, getHistoricalData, chartPeriod);
+  }, [pendingOrders, prices, getHistoricalData, chartPeriod]);
+
+  const effectiveCash = useMemo(() => {
+    const effective = Math.max(0, (computed.cash || 0) - reservedCash);
+    debug(`Effective cash: $${computed.cash?.toFixed(2)} - $${reservedCash.toFixed(2)} = $${effective.toFixed(2)}`);
+    return effective;
+  }, [computed.cash, reservedCash]);
 
   // Handlers
   const handleViewChart = useCallback((symbolOrPosition) => {
@@ -124,13 +258,13 @@ export function App({ paperTrading = false }) {
 
     setChartSymbol(symbol);
     setChartPosition(position);
-    setScreen('chart');
+    navigateTo('chart');
     setChartPeriod(DEFAULT_PERIOD);
 
     // Fetch data
     fetchPrice(symbol).catch(() => {});
     fetchHistorical(symbol, DEFAULT_PERIOD).catch(() => {});
-  }, [fetchPrice, fetchHistorical]);
+  }, [fetchPrice, fetchHistorical, navigateTo]);
 
   const handleChartPeriodChange = useCallback((period) => {
     debug('Chart period changed to', period);
@@ -141,48 +275,102 @@ export function App({ paperTrading = false }) {
   }, [fetchHistorical, chartSymbol]);
 
   const handleBuy = useCallback((symbol) => {
+    debug('handleBuy called for:', symbol);
     setBuySymbol(symbol);
-    setScreen('buy');
-    fetchPrice(symbol).catch(() => {});
-  }, [fetchPrice]);
+    navigateTo('buy');
+    // Fetch both real-time price and historical data (fallback)
+    fetchPrice(symbol).catch(() => {
+      debug('fetchPrice failed for', symbol, '- will use historical fallback');
+    });
+    fetchHistorical(symbol, chartPeriod).catch(() => {
+      debug('fetchHistorical failed for', symbol);
+    });
+  }, [fetchPrice, fetchHistorical, chartPeriod, navigateTo]);
 
   const handleSell = useCallback((symbol, quantity) => {
+    debug('handleSell called for:', symbol, 'quantity:', quantity);
     setSellData({ symbol, quantity });
-    setScreen('sell');
-    fetchPrice(symbol).catch(() => {});
-  }, [fetchPrice]);
+    navigateTo('sell');
+    // Fetch both real-time price and historical data (fallback)
+    fetchPrice(symbol).catch(() => {
+      debug('fetchPrice failed for', symbol, '- will use historical fallback');
+    });
+    fetchHistorical(symbol, chartPeriod).catch(() => {
+      debug('fetchHistorical failed for', symbol);
+    });
+  }, [fetchPrice, fetchHistorical, chartPeriod, navigateTo]);
 
   const handleSearch = useCallback(() => {
-    setScreen('search');
-  }, []);
+    navigateTo('search');
+  }, [navigateTo]);
 
   const handleConfirmBuy = useCallback(async (symbol, quantity) => {
     try {
       const result = await buy(symbol, quantity);
       setLastOrderResult(result);
-      setScreen('order-result');
+      // Order result is a terminal state - we'll navigate home after
+      setNavStack(['portfolio', 'order-result']);
+
+      // Record the trade in history if order was filled
+      if (result.status === 'Filled' && result.avgFillPrice) {
+        debug('Recording BUY trade:', symbol, quantity, result.avgFillPrice);
+        recordBuy(symbol, quantity, result.avgFillPrice, result.orderId);
+      }
     } catch (err) {
       console.error('Error buying:', err);
     }
-  }, [buy]);
+  }, [buy, recordBuy]);
 
   const handleConfirmSell = useCallback(async (symbol, quantity) => {
     try {
+      // Get avgCost before selling (for P&L calculation)
+      const position = positions.find(p => p.symbol === symbol);
+      const avgCostAtTrade = position?.avgCost;
+
       const result = await sell(symbol, quantity);
       setLastOrderResult(result);
-      setScreen('order-result');
+      // Order result is a terminal state - we'll navigate home after
+      setNavStack(['portfolio', 'order-result']);
+
+      // Record the trade in history if order was filled
+      if (result.status === 'Filled' && result.avgFillPrice) {
+        debug('Recording SELL trade:', symbol, quantity, result.avgFillPrice);
+        recordSell(symbol, quantity, result.avgFillPrice, result.orderId, avgCostAtTrade);
+      }
     } catch (err) {
       console.error('Error selling:', err);
     }
-  }, [sell]);
+  }, [sell, recordSell, positions]);
 
-  const handleBack = useCallback(() => {
-    setScreen('portfolio');
-    setChartSymbol(null);
-    setChartPosition(null);
-    setBuySymbol(null);
-    setSellData(null);
-  }, []);
+  const handleActivity = useCallback(() => {
+    debug('Opening activity screen');
+    // Fetch current prices for all symbols in trade history
+    const symbols = [...new Set(trades.map(t => t.symbol))];
+    symbols.forEach(symbol => {
+      fetchPrice(symbol).catch(() => {});
+    });
+    navigateTo('activity');
+  }, [trades, fetchPrice, navigateTo]);
+
+  // Orders screen handlers
+  const handleOrders = useCallback(() => {
+    debug('Opening orders screen');
+    // Fetch prices for pending orders symbols
+    pendingOrders.forEach(order => {
+      fetchPrice(order.symbol).catch(() => {});
+    });
+    navigateTo('orders');
+  }, [pendingOrders, fetchPrice, navigateTo]);
+
+  const handleOrdersCancel = useCallback(async (orderId) => {
+    debug('Cancelling order:', orderId);
+    try {
+      await cancelOrder(orderId);
+      debug('Order cancelled successfully');
+    } catch (err) {
+      debug('Error cancelling order:', err.message);
+    }
+  }, [cancelOrder]);
 
   const handleRefresh = useCallback(() => {
     refreshPortfolio();
@@ -197,15 +385,15 @@ export function App({ paperTrading = false }) {
   }, [disconnect, exit]);
 
   const handleRetry = useCallback(() => {
-    setScreen('connecting');
+    setNavStack(['connecting']);
     connect();
   }, [connect]);
 
   const handleOrderContinue = useCallback(() => {
     setLastOrderResult(null);
-    handleBack();
+    navigateHome();
     refreshPortfolio();
-  }, [handleBack, refreshPortfolio]);
+  }, [navigateHome, refreshPortfolio]);
 
   // Global key handlers
   useInput((input, key) => {
@@ -221,6 +409,11 @@ export function App({ paperTrading = false }) {
   // Render
   return (
     <Box flexDirection="column">
+      {/* Breadcrumb - only shown when navigation depth > 1 */}
+      {navStack.length > 1 && !['connecting', 'error', 'order-result'].includes(screen) && (
+        <Breadcrumb stack={navStack} screenNames={SCREEN_NAMES} />
+      )}
+
       {screen === 'connecting' && (
         <Loading message="Conectando a TWS..." />
       )}
@@ -240,9 +433,12 @@ export function App({ paperTrading = false }) {
           accountId={accountId}
           prices={prices}
           loading={portfolioLoading}
+          pendingOrdersCount={pendingCount}
           onViewChart={handleViewChart}
           onBuy={handleBuy}
           onSearch={handleSearch}
+          onActivity={handleActivity}
+          onOrders={handleOrders}
           onRefresh={handleRefresh}
           onQuit={handleQuit}
         />
@@ -255,42 +451,132 @@ export function App({ paperTrading = false }) {
           historicalData={getHistoricalData(chartSymbol, chartPeriod)}
           loading={isHistoricalLoading(chartSymbol, chartPeriod)}
           error={getHistoricalError(chartSymbol, chartPeriod)}
-          currentPrice={prices[chartSymbol]?.price}
+          currentPrice={chartPosition?.marketPrice || prices[chartSymbol]?.price}
+          purchaseDate={getFirstPurchaseDate(chartSymbol)}
           onPeriodChange={handleChartPeriodChange}
           onBuy={handleBuy}
           onSell={handleSell}
-          onBack={handleBack}
+          onBack={navigateBack}
         />
       )}
 
-      {screen === 'buy' && buySymbol && (
-        <BuyScreen
-          symbol={buySymbol}
-          currentPrice={prices[buySymbol]?.price}
-          priceLoading={isPriceLoading(buySymbol)}
-          availableCash={computed.cash}
-          onConfirm={handleConfirmBuy}
-          onCancel={handleBack}
-        />
-      )}
+      {screen === 'buy' && buySymbol && (() => {
+        // Use position marketPrice > realtime price > last historical price
+        const positionForBuy = positions.find(p => p.symbol === buySymbol);
+        const positionPrice = positionForBuy?.marketPrice;
+        const realtimePrice = prices[buySymbol]?.price;
+        const historicalData = getHistoricalData(buySymbol, chartPeriod);
+        const lastHistoricalPrice = historicalData?.length > 0
+          ? historicalData[historicalData.length - 1].close
+          : null;
+        const displayPrice = positionPrice || realtimePrice || lastHistoricalPrice;
+        const isEstimatedPrice = !positionPrice && !realtimePrice && !!lastHistoricalPrice;
 
-      {screen === 'sell' && sellData && (
-        <SellScreen
-          symbol={sellData.symbol}
-          currentPrice={prices[sellData.symbol]?.price}
-          priceLoading={isPriceLoading(sellData.symbol)}
-          ownedQuantity={sellData.quantity}
-          onConfirm={handleConfirmSell}
-          onCancel={handleBack}
-        />
-      )}
+        debug('BuyScreen price resolution:', {
+          symbol: buySymbol,
+          positionPrice,
+          realtimePrice,
+          historicalDataLength: historicalData?.length || 0,
+          lastHistoricalPrice,
+          displayPrice,
+          isEstimatedPrice,
+          priceLoading: isPriceLoading(buySymbol),
+        });
+
+        return (
+          <BuyScreen
+            symbol={buySymbol}
+            currentPrice={displayPrice}
+            isEstimatedPrice={isEstimatedPrice}
+            priceLoading={isPriceLoading(buySymbol) && !displayPrice}
+            availableCash={effectiveCash}
+            pendingOrdersCount={pendingCount}
+            onConfirm={handleConfirmBuy}
+            onCancel={navigateBack}
+          />
+        );
+      })()}
+
+      {screen === 'sell' && sellData && (() => {
+        // Use position marketPrice > realtime price > last historical price
+        const positionForSell = positions.find(p => p.symbol === sellData.symbol);
+        const positionPrice = positionForSell?.marketPrice;
+        const realtimePrice = prices[sellData.symbol]?.price;
+        const historicalData = getHistoricalData(sellData.symbol, chartPeriod);
+        const lastHistoricalPrice = historicalData?.length > 0
+          ? historicalData[historicalData.length - 1].close
+          : null;
+        const displayPrice = positionPrice || realtimePrice || lastHistoricalPrice;
+        const isEstimatedPrice = !positionPrice && !realtimePrice && !!lastHistoricalPrice;
+
+        debug('SellScreen price resolution:', {
+          symbol: sellData.symbol,
+          positionPrice,
+          realtimePrice,
+          historicalDataLength: historicalData?.length || 0,
+          lastHistoricalPrice,
+          displayPrice,
+          isEstimatedPrice,
+          priceLoading: isPriceLoading(sellData.symbol),
+        });
+
+        return (
+          <SellScreen
+            symbol={sellData.symbol}
+            currentPrice={displayPrice}
+            isEstimatedPrice={isEstimatedPrice}
+            priceLoading={isPriceLoading(sellData.symbol) && !displayPrice}
+            ownedQuantity={sellData.quantity}
+            onConfirm={handleConfirmSell}
+            onCancel={navigateBack}
+          />
+        );
+      })()}
 
       {screen === 'search' && (
         <SearchScreen
           onViewChart={handleViewChart}
-          onCancel={handleBack}
+          onCancel={navigateBack}
         />
       )}
+
+      {screen === 'activity' && (
+        <ActivityScreen
+          trades={trades}
+          prices={prices}
+          calculateBuyPerformance={calculateBuyPerformance}
+          calculateSellPerformance={calculateSellPerformance}
+          onViewChart={handleViewChart}
+          onBack={navigateBack}
+        />
+      )}
+
+      {screen === 'orders' && (() => {
+        // Enrich prices with historical fallback for orders screen
+        const enrichedPrices = { ...prices };
+        pendingOrders.forEach(order => {
+          if (!enrichedPrices[order.symbol]?.price) {
+            const historicalData = getHistoricalData(order.symbol, chartPeriod);
+            if (historicalData?.length > 0) {
+              enrichedPrices[order.symbol] = {
+                price: historicalData[historicalData.length - 1].close,
+                isEstimated: true,
+              };
+            }
+          }
+        });
+
+        return (
+          <OrdersScreen
+            orders={pendingOrders}
+            prices={enrichedPrices}
+            loading={ordersLoading}
+            onViewChart={handleViewChart}
+            onCancel={handleOrdersCancel}
+            onBack={navigateBack}
+          />
+        );
+      })()}
 
       {screen === 'order-result' && lastOrderResult && (
         <OrderResult

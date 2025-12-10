@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#000000">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/icon.svg">
+  <title>Folio</title>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+    }
+
+    body {
+      background: #000;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    #app {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Header - Total del portfolio */
+    .header {
+      padding: 30px 20px 20px;
+      text-align: center;
+      flex-shrink: 0;
+      position: relative;
+    }
+
+    .total {
+      font-size: 48px;
+      font-weight: 700;
+      letter-spacing: -2px;
+      line-height: 1;
+    }
+
+    .day-change {
+      font-size: 18px;
+      margin-top: 8px;
+      opacity: 0.9;
+    }
+
+    .positive { color: #4ADE80; }
+    .negative { color: #EF4444; }
+
+    /* Connection status */
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      position: absolute;
+      top: 20px;
+      right: 20px;
+    }
+
+    .status-dot.connected { background: #4ADE80; }
+    .status-dot.disconnected { background: #EF4444; animation: pulse 1.5s infinite; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    /* Positions list */
+    .positions {
+      flex: 1;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 0 12px 20px;
+    }
+
+    .section-label {
+      font-size: 11px;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      padding: 20px 8px 8px;
+      border-top: 1px solid #222;
+      margin-top: 10px;
+    }
+
+    .position {
+      background: #111;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .position.watchlist {
+      background: #0a0a0a;
+      border: 1px solid #222;
+    }
+
+    .position-info {
+      flex: 1;
+    }
+
+    .position .symbol {
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .position.watchlist .symbol {
+      font-weight: 500;
+      color: #888;
+    }
+
+    .position .value {
+      font-size: 16px;
+      margin-top: 4px;
+    }
+
+    .position .change {
+      font-size: 14px;
+    }
+
+    /* Action buttons */
+    .position-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 22px;
+      border: none;
+      font-size: 24px;
+      font-weight: 300;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.1s, opacity 0.1s;
+    }
+
+    .btn:active {
+      transform: scale(0.9);
+    }
+
+    .btn-buy {
+      background: #166534;
+      color: #4ADE80;
+    }
+
+    .btn-sell {
+      background: #7f1d1d;
+      color: #EF4444;
+    }
+
+    /* Modal overlay */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.95);
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      z-index: 100;
+    }
+
+    .modal-overlay.visible {
+      display: flex;
+    }
+
+    .modal {
+      background: #1a1a1a;
+      border-radius: 20px;
+      padding: 24px;
+      width: 100%;
+      max-width: 360px;
+    }
+
+    .modal-header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .modal-title {
+      font-size: 24px;
+      font-weight: 600;
+    }
+
+    .modal-subtitle {
+      font-size: 14px;
+      color: #888;
+      margin-top: 4px;
+    }
+
+    /* Amount buttons */
+    .amount-buttons {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .amount-btn {
+      background: #333;
+      border: 2px solid transparent;
+      border-radius: 12px;
+      padding: 16px 12px;
+      font-size: 18px;
+      font-weight: 600;
+      color: #fff;
+      cursor: pointer;
+      transition: all 0.15s;
+      text-align: center;
+    }
+
+    .amount-btn:active {
+      transform: scale(0.95);
+    }
+
+    .amount-btn.selected {
+      background: #166534;
+      border-color: #4ADE80;
+    }
+
+    .amount-btn.sell.selected {
+      background: #7f1d1d;
+      border-color: #EF4444;
+    }
+
+    .amount-btn small {
+      display: block;
+      font-size: 12px;
+      font-weight: 400;
+      color: #888;
+      margin-top: 4px;
+    }
+
+    /* Confirm button */
+    .confirm-btn {
+      width: 100%;
+      padding: 18px;
+      border-radius: 12px;
+      border: none;
+      font-size: 18px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      margin-top: 8px;
+    }
+
+    .confirm-btn:disabled {
+      background: #333;
+      color: #666;
+    }
+
+    .confirm-btn.buy {
+      background: #4ADE80;
+      color: #000;
+    }
+
+    .confirm-btn.sell {
+      background: #EF4444;
+      color: #fff;
+    }
+
+    .confirm-btn:active:not(:disabled) {
+      transform: scale(0.98);
+    }
+
+    /* Cancel button */
+    .cancel-btn {
+      background: transparent;
+      border: none;
+      color: #666;
+      font-size: 16px;
+      padding: 16px;
+      width: 100%;
+      cursor: pointer;
+      margin-top: 8px;
+    }
+
+    /* Loading state */
+    .loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: #666;
+    }
+
+    .loading-text {
+      font-size: 18px;
+      margin-top: 20px;
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid #333;
+      border-top-color: #4ADE80;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Empty state */
+    .empty {
+      text-align: center;
+      padding: 40px;
+      color: #666;
+    }
+
+    /* Notification toast */
+    .toast {
+      position: fixed;
+      bottom: calc(env(safe-area-inset-bottom, 20px) + 20px);
+      left: 20px;
+      right: 20px;
+      background: #1a1a1a;
+      border-radius: 12px;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      transform: translateY(150%);
+      transition: transform 0.3s ease;
+      z-index: 200;
+    }
+
+    .toast.visible {
+      transform: translateY(0);
+    }
+
+    .toast.success {
+      border-left: 4px solid #4ADE80;
+    }
+
+    .toast.error {
+      border-left: 4px solid #EF4444;
+    }
+
+    .toast-icon {
+      font-size: 20px;
+    }
+
+    .toast-message {
+      flex: 1;
+      font-size: 15px;
+    }
+
+    /* Processing state */
+    .processing {
+      opacity: 0.5;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="loading">
+      <div class="spinner"></div>
+      <div class="loading-text">Conectando...</div>
+    </div>
+  </div>
+
+  <!-- Toast notification -->
+  <div class="toast" id="toast">
+    <span class="toast-icon"></span>
+    <span class="toast-message"></span>
+  </div>
+
+  <!-- Trade modal -->
+  <div class="modal-overlay" id="modal">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title" id="modal-title">Comprar AAPL</div>
+        <div class="modal-subtitle" id="modal-subtitle">Cash disponible: $10,000</div>
+      </div>
+
+      <div class="amount-buttons" id="amount-buttons"></div>
+
+      <button class="confirm-btn" id="confirm-btn" disabled>Seleccionar monto</button>
+      <button class="cancel-btn" id="cancel-btn">Cancelar</button>
+    </div>
+  </div>
+
+  <script>
+    // ═══════════════════════════════════════════════════════════════
+    // STATE
+    // ═══════════════════════════════════════════════════════════════
+
+    let state = {
+      connected: false,
+      total: 0,
+      dayChange: 0,
+      dayChangePercent: 0,
+      cash: 0,
+      positions: [],
+      watchlist: [],
+    };
+
+    let ws = null;
+    let currentTrade = null;
+    let selectedAmount = null;
+    let reconnectTimeout = null;
+
+    // ═══════════════════════════════════════════════════════════════
+    // WEBSOCKET
+    // ═══════════════════════════════════════════════════════════════
+
+    function connect() {
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+        reconnectTimeout = null;
+      }
+
+      const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${location.host}`;
+
+      console.log('[WS] Conectando a', wsUrl);
+
+      try {
+        ws = new WebSocket(wsUrl);
+      } catch (err) {
+        console.error('[WS] Error creando WebSocket:', err);
+        scheduleReconnect();
+        return;
+      }
+
+      ws.onopen = () => {
+        console.log('[WS] Conectado');
+        state.connected = true;
+        render();
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          console.log('[WS] Mensaje:', message.type);
+          handleMessage(message);
+        } catch (err) {
+          console.error('[WS] Error parseando:', err);
+        }
+      };
+
+      ws.onclose = () => {
+        console.log('[WS] Desconectado');
+        state.connected = false;
+        render();
+        scheduleReconnect();
+      };
+
+      ws.onerror = (err) => {
+        console.error('[WS] Error:', err);
+      };
+    }
+
+    function scheduleReconnect() {
+      if (!reconnectTimeout) {
+        console.log('[WS] Reconectando en 3s...');
+        reconnectTimeout = setTimeout(connect, 3000);
+      }
+    }
+
+    function send(message) {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(message));
+        return true;
+      }
+      return false;
+    }
+
+    function handleMessage(message) {
+      switch (message.type) {
+        case 'STATE':
+          state = { ...state, ...message, connected: true };
+          render();
+          break;
+
+        case 'CONNECTION':
+          state.connected = message.status === 'connected';
+          render();
+          break;
+
+        case 'ORDER_OK':
+          hideModal();
+          showToast('success', `${message.action === 'BUY' ? 'Compra' : 'Venta'} ejecutada`);
+          break;
+
+        case 'ORDER_FAIL':
+          hideModal();
+          showToast('error', message.message || 'Error en la orden');
+          break;
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // RENDER
+    // ═══════════════════════════════════════════════════════════════
+
+    function formatMoney(value) {
+      if (value === undefined || value === null || isNaN(value)) return '$0';
+      if (Math.abs(value) >= 1000000) {
+        return '$' + (value / 1000000).toFixed(2) + 'M';
+      }
+      return '$' + Math.round(value).toLocaleString('en-US');
+    }
+
+    function formatPercent(value) {
+      if (value === undefined || value === null || isNaN(value)) return '+0.0%';
+      const sign = value >= 0 ? '+' : '';
+      return sign + value.toFixed(1) + '%';
+    }
+
+    function render() {
+      const app = document.getElementById('app');
+
+      // Still loading
+      if (!state.connected && state.positions.length === 0) {
+        app.innerHTML = `
+          <div class="loading">
+            <div class="spinner"></div>
+            <div class="loading-text">Conectando...</div>
+          </div>
+        `;
+        return;
+      }
+
+      const changeClass = state.dayChange >= 0 ? 'positive' : 'negative';
+
+      let positionsHTML = '';
+
+      // Portfolio positions
+      if (state.positions.length > 0) {
+        positionsHTML += state.positions.map(pos => {
+          const changeClass = (pos.change || 0) >= 0 ? 'positive' : 'negative';
+          return `
+            <div class="position">
+              <div class="position-info">
+                <div class="symbol">${pos.symbol}</div>
+                <div class="value">
+                  ${formatMoney(pos.value)}
+                  <span class="change ${changeClass}">${formatPercent(pos.change)}</span>
+                </div>
+              </div>
+              <div class="position-actions">
+                <button class="btn btn-buy" onclick="openBuyModal('${pos.symbol}', ${pos.value / pos.quantity})">+</button>
+                <button class="btn btn-sell" onclick="openSellModal('${pos.symbol}', ${pos.quantity})">−</button>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      // Watchlist
+      if (state.watchlist && state.watchlist.length > 0) {
+        positionsHTML += '<div class="section-label">Watchlist</div>';
+        positionsHTML += state.watchlist.map(item => {
+          const changeClass = (item.change || 0) >= 0 ? 'positive' : 'negative';
+          const price = item.price || 0;
+          return `
+            <div class="position watchlist">
+              <div class="position-info">
+                <div class="symbol">${item.symbol}</div>
+                <div class="value">
+                  ${price > 0 ? '$' + price.toFixed(2) : 'Sin precio'}
+                  <span class="change ${changeClass}">${formatPercent(item.change)}</span>
+                </div>
+              </div>
+              <div class="position-actions">
+                <button class="btn btn-buy" onclick="openBuyModal('${item.symbol}', ${price})" ${price <= 0 ? 'disabled' : ''}>+</button>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      if (!positionsHTML) {
+        positionsHTML = '<div class="empty">Sin posiciones</div>';
+      }
+
+      app.innerHTML = `
+        <div class="header">
+          <div class="status-dot ${state.connected ? 'connected' : 'disconnected'}"></div>
+          <div class="total">${formatMoney(state.total)}</div>
+          <div class="day-change ${changeClass}">
+            ${state.dayChange >= 0 ? '+' : ''}${formatMoney(Math.abs(state.dayChange))} (${formatPercent(state.dayChangePercent)})
+          </div>
+        </div>
+        <div class="positions">
+          ${positionsHTML}
+        </div>
+      `;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // MODAL
+    // ═══════════════════════════════════════════════════════════════
+
+    window.openBuyModal = function(symbol, price) {
+      currentTrade = { action: 'BUY', symbol, price: price || 0 };
+      selectedAmount = null;
+
+      const modal = document.getElementById('modal');
+      const title = document.getElementById('modal-title');
+      const subtitle = document.getElementById('modal-subtitle');
+      const buttons = document.getElementById('amount-buttons');
+      const confirmBtn = document.getElementById('confirm-btn');
+
+      title.textContent = `Comprar ${symbol}`;
+      subtitle.textContent = `Cash disponible: ${formatMoney(state.cash)}`;
+
+      confirmBtn.textContent = 'Seleccionar monto';
+      confirmBtn.disabled = true;
+      confirmBtn.className = 'confirm-btn buy';
+
+      // Generate amount buttons
+      const amounts = [100, 500, 1000, Math.floor(state.cash)];
+      const labels = ['$100', '$500', '$1,000', 'MAX'];
+
+      buttons.innerHTML = amounts.map((amount, i) => {
+        const shares = price > 0 ? Math.floor(amount / price) : 0;
+        const disabled = amount > state.cash || shares <= 0;
+        return `
+          <button class="amount-btn ${disabled ? 'disabled' : ''}"
+                  data-amount="${amount}"
+                  data-shares="${shares}"
+                  ${disabled ? 'disabled' : ''}
+                  onclick="selectAmount(this, ${amount}, ${shares})">
+            ${labels[i]}
+            <small>${shares} acciones</small>
+          </button>
+        `;
+      }).join('');
+
+      modal.classList.add('visible');
+    };
+
+    window.openSellModal = function(symbol, quantity) {
+      currentTrade = { action: 'SELL', symbol, quantity };
+      selectedAmount = null;
+
+      const modal = document.getElementById('modal');
+      const title = document.getElementById('modal-title');
+      const subtitle = document.getElementById('modal-subtitle');
+      const buttons = document.getElementById('amount-buttons');
+      const confirmBtn = document.getElementById('confirm-btn');
+
+      title.textContent = `Vender ${symbol}`;
+      subtitle.textContent = `Tenés ${quantity} acciones`;
+
+      confirmBtn.textContent = 'Seleccionar cantidad';
+      confirmBtn.disabled = true;
+      confirmBtn.className = 'confirm-btn sell';
+
+      // Percentage buttons
+      const percents = [25, 50, 75, 100];
+      const labels = ['25%', '50%', '75%', 'TODO'];
+
+      buttons.innerHTML = percents.map((pct, i) => {
+        const shares = Math.floor(quantity * pct / 100);
+        return `
+          <button class="amount-btn sell"
+                  data-percent="${pct}"
+                  data-shares="${shares}"
+                  onclick="selectPercent(this, ${pct}, ${shares})">
+            ${labels[i]}
+            <small>${shares} acciones</small>
+          </button>
+        `;
+      }).join('');
+
+      modal.classList.add('visible');
+    };
+
+    window.selectAmount = function(btn, amount, shares) {
+      document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      selectedAmount = amount;
+      currentTrade.amount = amount;
+      currentTrade.shares = shares;
+
+      const confirmBtn = document.getElementById('confirm-btn');
+      confirmBtn.textContent = `Comprar ${shares} acciones`;
+      confirmBtn.disabled = false;
+    };
+
+    window.selectPercent = function(btn, percent, shares) {
+      document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      selectedAmount = percent;
+      currentTrade.percent = percent;
+      currentTrade.shares = shares;
+
+      const confirmBtn = document.getElementById('confirm-btn');
+      confirmBtn.textContent = `Vender ${shares} acciones`;
+      confirmBtn.disabled = false;
+    };
+
+    function hideModal() {
+      const modal = document.getElementById('modal');
+      modal.classList.remove('visible');
+      currentTrade = null;
+      selectedAmount = null;
+    }
+
+    // Confirm button handler
+    document.getElementById('confirm-btn').addEventListener('click', () => {
+      if (!currentTrade || selectedAmount === null) return;
+
+      const confirmBtn = document.getElementById('confirm-btn');
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = 'Enviando...';
+
+      if (currentTrade.action === 'BUY') {
+        send({
+          type: 'BUY',
+          symbol: currentTrade.symbol,
+          amount: currentTrade.amount,
+        });
+      } else {
+        send({
+          type: 'SELL',
+          symbol: currentTrade.symbol,
+          percent: currentTrade.percent,
+        });
+      }
+    });
+
+    // Cancel button handler
+    document.getElementById('cancel-btn').addEventListener('click', hideModal);
+
+    // ═══════════════════════════════════════════════════════════════
+    // TOAST
+    // ═══════════════════════════════════════════════════════════════
+
+    function showToast(type, message) {
+      const toast = document.getElementById('toast');
+      const icon = toast.querySelector('.toast-icon');
+      const msg = toast.querySelector('.toast-message');
+
+      toast.className = `toast ${type} visible`;
+      icon.textContent = type === 'success' ? '✓' : '✕';
+      msg.textContent = message;
+
+      setTimeout(() => {
+        toast.classList.remove('visible');
+      }, 3000);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // INIT
+    // ═══════════════════════════════════════════════════════════════
+
+    // Connect WebSocket
+    connect();
+
+    // Initial render
+    render();
+  </script>
+</body>
+</html>

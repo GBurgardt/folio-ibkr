@@ -3,6 +3,7 @@ import { Box, Text, useInput, useStdout } from 'ink';
 import asciichart from 'asciichart';
 import { formatMoney, formatPercent } from '../utils/format.js';
 import { PERIODS, PERIOD_KEYS, DEFAULT_PERIOD } from '../hooks/useHistoricalData.js';
+import PerformanceChart from './PerformanceChart.jsx';
 
 const debug = (...args) => {
   if (process.argv.includes('--debug')) {
@@ -140,12 +141,14 @@ export function ChartScreen({
   loading,
   error,
   currentPrice,
+  purchaseDate, // Timestamp of first purchase (for performance view)
   onPeriodChange,
   onBuy,
   onSell,
   onBack,
 }) {
   const [selectedPeriod, setSelectedPeriod] = useState(DEFAULT_PERIOD);
+  const [viewMode, setViewMode] = useState('auto'); // 'auto', 'performance', 'price'
   const { stdout } = useStdout();
 
   // Extract data from position if available
@@ -153,34 +156,55 @@ export function ChartScreen({
   const quantity = position?.quantity;
   const owned = !!position;
 
+  // Determine which view to show
+  // If user owns the stock, default to performance view
+  // 'p' key toggles to price view
+  const showPerformance = useMemo(() => {
+    if (viewMode === 'price') return false;
+    if (viewMode === 'performance') return true;
+    // Auto mode: show performance if owned
+    return owned && avgCost > 0;
+  }, [viewMode, owned, avgCost]);
+
   // Get terminal width for chart sizing
   const terminalWidth = stdout?.columns || 80;
-  const chartWidth = Math.min(terminalWidth - 15, 100); // Reduced max, with padding for labels
+  const chartWidth = Math.min(terminalWidth - 15, 100);
 
-  debug(`ChartScreen render: symbol=${symbol} period=${selectedPeriod} hasData=${!!historicalData} loading=${loading} currentPrice=${currentPrice}`);
+  debug(`ChartScreen render: symbol=${symbol} owned=${owned} showPerformance=${showPerformance} period=${selectedPeriod}`);
 
-  // Handle period change
+  // Handle period change - only for price view
   useEffect(() => {
-    debug(`Period changed to ${selectedPeriod}, calling onPeriodChange`);
-    onPeriodChange?.(selectedPeriod);
-  }, [selectedPeriod, onPeriodChange]);
+    if (!showPerformance) {
+      debug(`Period changed to ${selectedPeriod}, calling onPeriodChange`);
+      onPeriodChange?.(selectedPeriod);
+    }
+  }, [selectedPeriod, onPeriodChange, showPerformance]);
 
   // Input handling
   useInput((input, key) => {
-    if (key.escape || key.leftArrow) {
+    if (key.escape) {
       debug('Back navigation triggered');
       onBack?.();
-    } else if (key.upArrow) {
-      // More time (zoom out)
+    } else if (key.upArrow && !showPerformance) {
+      // More time (zoom out) - only in price view
       const currentIndex = PERIOD_KEYS.indexOf(selectedPeriod);
       if (currentIndex < PERIOD_KEYS.length - 1) {
         setSelectedPeriod(PERIOD_KEYS[currentIndex + 1]);
       }
-    } else if (key.downArrow) {
-      // Less time (zoom in)
+    } else if (key.downArrow && !showPerformance) {
+      // Less time (zoom in) - only in price view
       const currentIndex = PERIOD_KEYS.indexOf(selectedPeriod);
       if (currentIndex > 0) {
         setSelectedPeriod(PERIOD_KEYS[currentIndex - 1]);
+      }
+    } else if (input === 'p' && owned) {
+      // Toggle between performance and price view
+      if (showPerformance) {
+        debug('Switching to price view');
+        setViewMode('price');
+      } else {
+        debug('Switching to performance view');
+        setViewMode('performance');
       }
     } else if (input === 'b') {
       debug('Buy triggered for', symbol);
@@ -191,7 +215,7 @@ export function ChartScreen({
     }
   });
 
-  // Process data for chart
+  // Process data for price chart
   const chartData = useMemo(() => {
     if (!historicalData || historicalData.length === 0) {
       debug('No historical data available');
@@ -236,7 +260,7 @@ export function ChartScreen({
     };
   }, [historicalData, currentPrice, chartWidth]);
 
-  // Render chart
+  // Render price chart
   const chartRender = useMemo(() => {
     if (!chartData) return null;
 
@@ -245,7 +269,7 @@ export function ChartScreen({
 
     try {
       const chart = asciichart.plot(chartData.prices, {
-        height: 12, // Slightly taller for better detail
+        height: 12,
         colors: [color],
         format: (x) => formatMoney(x).padStart(10),
       });
@@ -262,16 +286,6 @@ export function ChartScreen({
   const xAxisData = useMemo(() => {
     return generateXAxisLabels(historicalData, chartWidth, selectedPeriod);
   }, [historicalData, chartWidth, selectedPeriod]);
-
-  // Calculate gain/loss from purchase price
-  const positionGain = useMemo(() => {
-    if (!avgCost || !currentPrice || !quantity) return null;
-    const totalCost = avgCost * quantity;
-    const currentValue = currentPrice * quantity;
-    const gain = currentValue - totalCost;
-    const gainPercent = totalCost > 0 ? (gain / totalCost) * 100 : 0;
-    return { gain, gainPercent, currentValue, totalCost };
-  }, [avgCost, currentPrice, quantity]);
 
   // Display price - prefer currentPrice, fallback to last historical
   const displayPrice = currentPrice || chartData?.last;
@@ -296,23 +310,63 @@ export function ChartScreen({
         <Box marginTop={1}>
           <Text color="red">{error}</Text>
         </Box>
-        <Box marginTop={1}>
-          <Text color="gray">← volver</Text>
-        </Box>
       </Box>
     );
   }
 
   // No data state
+  if (!historicalData || historicalData.length === 0) {
+    return (
+      <Box flexDirection="column" padding={1}>
+        <Text bold color="white">{symbol}</Text>
+        <Box marginTop={1}>
+          <Text color="gray">Sin datos</Text>
+        </Box>
+      </Box>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // PERFORMANCE VIEW - When user owns the stock
+  // ═══════════════════════════════════════════════════════════════
+  if (showPerformance) {
+    return (
+      <Box flexDirection="column" padding={1}>
+        <PerformanceChart
+          symbol={symbol}
+          historicalData={historicalData}
+          avgCost={avgCost}
+          quantity={quantity}
+          purchaseDate={purchaseDate}
+          currentPrice={currentPrice}
+        />
+
+        {/* Footer: subtle */}
+        <Box marginTop={1} justifyContent="space-between">
+          <Box>
+            <Text color="gray">p </Text>
+            <Text color="white">precio</Text>
+          </Box>
+          <Box>
+            <Text color="gray">b </Text>
+            <Text color="white">comprar</Text>
+            <Text color="gray">   s </Text>
+            <Text color="white">vender</Text>
+          </Box>
+        </Box>
+      </Box>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // PRICE VIEW - Traditional price chart
+  // ═══════════════════════════════════════════════════════════════
   if (!chartData || !chartRender) {
     return (
       <Box flexDirection="column" padding={1}>
         <Text bold color="white">{symbol}</Text>
         <Box marginTop={1}>
           <Text color="gray">Sin datos históricos</Text>
-        </Box>
-        <Box marginTop={1}>
-          <Text color="gray">← volver</Text>
         </Box>
       </Box>
     );
@@ -341,18 +395,6 @@ export function ChartScreen({
         <Text color="gray">{xAxisData.axisLine}</Text>
       </Box>
 
-      {/* Position info - only if user owns the stock, clean format */}
-      {owned && positionGain && (
-        <Box marginTop={1}>
-          <Text color="gray">{quantity} × </Text>
-          <Text color="white">{formatMoney(avgCost)}</Text>
-          <Text color="gray">  →  </Text>
-          <Text color={positionGain.gain >= 0 ? 'green' : 'red'}>
-            {positionGain.gain >= 0 ? '+' : ''}{formatMoney(positionGain.gain)} ({positionGain.gain >= 0 ? '+' : ''}{formatPercent(positionGain.gainPercent)})
-          </Text>
-        </Box>
-      )}
-
       {/* Footer: Period on left, Actions on right - subtle */}
       <Box marginTop={1} justifyContent="space-between">
         <Box>
@@ -360,6 +402,13 @@ export function ChartScreen({
           <Text color="gray">  ↑↓</Text>
         </Box>
         <Box>
+          {owned && (
+            <>
+              <Text color="gray">p </Text>
+              <Text color="white">mi inversión</Text>
+              <Text>   </Text>
+            </>
+          )}
           <Text color="gray">b </Text>
           <Text color="white">comprar</Text>
           {owned && (
@@ -368,8 +417,6 @@ export function ChartScreen({
               <Text color="white">vender</Text>
             </>
           )}
-          <Text color="gray">   ← </Text>
-          <Text color="white">volver</Text>
         </Box>
       </Box>
     </Box>

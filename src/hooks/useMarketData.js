@@ -1,5 +1,17 @@
 import { useState, useCallback, useRef } from 'react';
 
+/**
+ * useMarketData - Hook para obtener precios de mercado
+ *
+ * IMPORTANTE: Para posiciones que ya tenemos, el precio viene directamente
+ * de updatePortfolio (en usePortfolio). Este hook solo se usa como
+ * fuente secundaria para símbolos que NO están en el portfolio.
+ *
+ * Dado que no tenemos suscripción de market data en IB, este hook
+ * simplemente marca los símbolos como "no disponible" y la UI
+ * usa los precios históricos como fallback.
+ */
+
 let marketDataReqCounter = 6000;
 
 const debug = (...args) => {
@@ -30,58 +42,51 @@ export function useMarketData(getClient, isConnected) {
     debug(`Requesting market data for ${symbol} with reqId=${reqId}`);
     setLoading(prev => ({ ...prev, [symbol]: true }));
 
-    const promise = new Promise((resolve, reject) => {
+    const promise = new Promise((resolve) => {
       const contract = client.contract.stock(symbol, exchange, currency);
       debug(`Contract created:`, contract);
       let resolved = false;
 
+      // Tick types we care about (both live and delayed)
       const interestingFields = new Set([
-        client.TICK_TYPE.LAST,
-        client.TICK_TYPE.DELAYED_LAST,
-        client.TICK_TYPE.MARK_PRICE,
-        client.TICK_TYPE.BID,
-        client.TICK_TYPE.ASK,
-        client.TICK_TYPE.CLOSE,
-        client.TICK_TYPE.DELAYED_CLOSE,
+        1, 2, 4, 6, 7, 9, 14, 37,  // Live
+        66, 67, 68, 72, 73, 75, 76  // Delayed
       ]);
 
+      const tickTypeNames = {
+        1: 'BID', 2: 'ASK', 4: 'LAST', 6: 'HIGH', 7: 'LOW', 9: 'CLOSE', 14: 'OPEN',
+        37: 'MARK_PRICE', 66: 'DELAYED_BID', 67: 'DELAYED_ASK', 68: 'DELAYED_LAST',
+        72: 'DELAYED_HIGH', 73: 'DELAYED_LOW', 75: 'DELAYED_CLOSE', 76: 'DELAYED_OPEN'
+      };
+
+      // Timeout corto - si no hay market data, resolvemos null
+      // La UI usará el precio histórico como fallback
       const timeout = setTimeout(() => {
         if (!resolved) {
-          debug(`⏱️  TIMEOUT for ${symbol} (reqId=${reqId}) - no price data received in 8s`);
+          debug(`⏱️ TIMEOUT for ${symbol} - no market data available (no subscription)`);
           cleanup();
           setLoading(prev => ({ ...prev, [symbol]: false }));
-          reject(new Error(`Timeout obteniendo precio de ${symbol}`));
+          resolve(null);
         }
-      }, 8000);
+      }, 3000); // 3 segundos es suficiente para saber si hay datos
 
       const onTickPrice = (tickerId, field, price) => {
-        debug(`tickPrice event: tickerId=${tickerId} reqId=${reqId} field=${field} (${client.util.tickTypeToString(field)}) price=${price}`);
+        const fieldName = tickTypeNames[field] || `UNKNOWN(${field})`;
+        debug(`tickPrice event: tickerId=${tickerId} field=${field} (${fieldName}) price=${price}`);
 
-        if (tickerId !== reqId) {
-          debug(`  ↳ Ignored: different tickerId`);
-          return;
-        }
-        if (!interestingFields.has(field)) {
-          debug(`  ↳ Ignored: not interesting field`);
-          return;
-        }
-        if (price <= 0) {
-          debug(`  ↳ Ignored: invalid price (${price})`);
-          return;
-        }
-        if (resolved) {
-          debug(`  ↳ Ignored: already resolved`);
-          return;
-        }
+        if (tickerId !== reqId) return;
+        if (!interestingFields.has(field)) return;
+        if (price <= 0) return;
+        if (resolved) return;
 
-        debug(`✅ PRICE RECEIVED for ${symbol}: $${price} (${client.util.tickTypeToString(field)})`);
+        debug(`✅ PRICE RECEIVED for ${symbol}: $${price} (${fieldName})`);
         resolved = true;
         cleanup();
 
         const priceData = {
           price,
           field,
-          fieldLabel: client.util.tickTypeToString(field),
+          fieldLabel: fieldName,
           timestamp: Date.now(),
         };
 
@@ -93,24 +98,15 @@ export function useMarketData(getClient, isConnected) {
       const onError = (err, data) => {
         if (resolved) return;
         const code = data?.code;
-        debug(`Error event for reqId=${reqId}: code=${code} message=${err?.message}`);
 
-        // Info/warning codes to ignore:
-        // 2104, 2106, 2158 = connection info
-        // 2176 = "fractional share size rules" warning (safe to ignore)
-        // 10089 = "requires additional API subscriptions" (delayed data still comes)
-        // 10167 = "No live subscription, showing delayed data" (NOT an error!)
-        // 10168 = "Delayed market data" info
-        // 300, 354 = ticker ID not found / not subscribed (after request cancelled)
-        if (code && [300, 354, 2104, 2106, 2158, 2176, 10089, 10167, 10168].includes(code)) {
-          debug(`  ↳ Ignored: info message (code ${code})`);
+        // Códigos informativos a ignorar
+        const ignoreCodes = [300, 354, 2104, 2106, 2158, 2176, 10089, 10167, 10168];
+        if (code && ignoreCodes.includes(code)) {
+          debug(`Info message (code ${code}): ${err?.message}`);
           return;
         }
 
-        debug(`❌ ERROR for ${symbol}: ${err?.message || 'Unknown error'}`);
-        cleanup();
-        setLoading(prev => ({ ...prev, [symbol]: false }));
-        reject(new Error(err?.message || `Error obteniendo precio de ${symbol}`));
+        debug(`Error for ${symbol} (code ${code}): ${err?.message}`);
       };
 
       const cleanup = () => {
@@ -128,12 +124,13 @@ export function useMarketData(getClient, isConnected) {
       client.on('tickPrice', onTickPrice);
       client.on('error', onError);
 
-      debug(`Setting market data type to 3 (delayed)`);
-      client.reqMarketDataType(3); // delayed data si no hay realtime
+      // Intentar con tipo 4 (delayed-frozen)
+      debug(`Setting market data type to 4 (delayed-frozen)`);
+      client.reqMarketDataType(4);
 
       debug(`Calling reqMktData(${reqId}, contract, '', true, false)`);
       client.reqMktData(reqId, contract, '', true, false);
-      debug(`reqMktData called successfully, waiting for tickPrice events...`);
+      debug(`reqMktData called, waiting for tickPrice events...`);
     });
 
     activeRequestsRef.current[symbol] = promise;

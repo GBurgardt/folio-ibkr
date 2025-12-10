@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import Spinner from 'ink-spinner';
+import { humanizeWarning } from '../hooks/useTrade.js';
 
 export function Loading({ message = 'Cargando...' }) {
   return (
@@ -44,58 +45,69 @@ export function ConnectionError({ error, onRetry }) {
 }
 
 export function OrderResult({ result, onContinue }) {
-  const isSuccess = result.status === 'Filled' || result.status === 'Submitted' || result.status === 'PreSubmitted';
+  const isFilled = result.status === 'Filled';
+  const isSubmitted = result.status === 'Submitted' || result.status === 'PreSubmitted';
+  const isRejected = result.status === 'Inactive' || result.status === 'Cancelled';
+  const isSuccess = isFilled || isSubmitted;
+  const hasWarning = result.warning;
+  const warningText = humanizeWarning(result.warning);
+
+  // Determine the main message
+  let statusMessage = 'Orden enviada';
+  let statusColor = 'yellow';
+
+  if (isRejected) {
+    statusMessage = '✗ Orden rechazada';
+    statusColor = 'red';
+  } else if (isFilled) {
+    statusMessage = '✓ Orden ejecutada';
+    statusColor = 'green';
+  } else if (isSubmitted) {
+    statusMessage = '✓ Orden enviada';
+    statusColor = 'green';
+  }
 
   return (
     <Box flexDirection="column" padding={1}>
-      <Box
-        borderStyle="round"
-        borderColor={isSuccess ? 'green' : 'yellow'}
-        flexDirection="column"
-        paddingX={2}
-        paddingY={1}
-      >
-        <Text bold color={isSuccess ? 'green' : 'yellow'}>
-          {isSuccess ? 'Orden ejecutada' : 'Orden enviada'}
-        </Text>
+      {/* Main status - clean, no border */}
+      <Box marginBottom={1}>
+        <Text bold color={statusColor}>{statusMessage}</Text>
       </Box>
 
-      <Box
-        borderStyle="single"
-        borderColor="gray"
-        marginTop={1}
-        flexDirection="column"
-        paddingX={2}
-        paddingY={1}
-        gap={1}
-      >
-        <Box justifyContent="space-between">
-          <Text color="gray">Orden #:</Text>
-          <Text>{result.orderId}</Text>
-        </Box>
-
-        <Box justifyContent="space-between">
-          <Text color="gray">Estado:</Text>
-          <Text color={isSuccess ? 'green' : 'yellow'}>{result.status}</Text>
-        </Box>
-
-        {result.filled && (
-          <Box justifyContent="space-between">
-            <Text color="gray">Ejecutadas:</Text>
-            <Text>{result.filled}</Text>
+      {/* Order details - minimal */}
+      <Box flexDirection="column" marginBottom={1}>
+        {result.filled > 0 && result.avgFillPrice && (
+          <Box>
+            <Text color="gray">{result.filled} × </Text>
+            <Text color="white">${result.avgFillPrice.toFixed(2)}</Text>
           </Box>
         )}
 
-        {result.avgFillPrice && (
-          <Box justifyContent="space-between">
-            <Text color="gray">Precio promedio:</Text>
-            <Text>${result.avgFillPrice.toFixed(2)}</Text>
+        {(!result.filled || result.filled === 0) && isSubmitted && (
+          <Box>
+            <Text color="gray">Orden #{result.orderId}</Text>
           </Box>
         )}
       </Box>
 
-      <Box marginTop={2} paddingX={1}>
-        <Text color="cyan">[Enter] Continuar</Text>
+      {/* Rejection reason */}
+      {isRejected && result.rejectionReason && (
+        <Box marginBottom={1}>
+          <Text color="red" dimColor>{result.rejectionReason}</Text>
+        </Box>
+      )}
+
+      {/* Warning note - if any */}
+      {warningText && !isRejected && (
+        <Box marginBottom={1}>
+          <Text color="yellow">⏰ {warningText}</Text>
+        </Box>
+      )}
+
+      {/* Continue action */}
+      <Box marginTop={1}>
+        <Text color="gray">Enter </Text>
+        <Text color="white">continuar</Text>
       </Box>
     </Box>
   );

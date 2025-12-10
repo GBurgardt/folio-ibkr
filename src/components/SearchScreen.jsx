@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import TextInput from 'ink-text-input';
-import StatusBar from './StatusBar.jsx';
 
 const POPULAR_SYMBOLS = ['AAPL', 'GOOGL', 'MSFT', 'AMZN', 'TSLA', 'META', 'NVDA', 'AMD'];
 
@@ -94,7 +93,11 @@ export function SearchScreen({
         )}
       </Box>
 
-      <StatusBar screen="search" />
+      {/* Footer */}
+      <Box marginTop={1}>
+        <Text color="gray">Enter </Text>
+        <Text color="white">ver gráfico</Text>
+      </Box>
     </Box>
   );
 }

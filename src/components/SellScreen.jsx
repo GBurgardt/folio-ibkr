@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import TextInput from 'ink-text-input';
 import { formatMoney } from '../utils/format.js';
-import StatusBar from './StatusBar.jsx';
 
 export function SellScreen({
   symbol,
   currentPrice,
+  isEstimatedPrice = false,
   priceLoading,
   ownedQuantity,
   onConfirm,
@@ -100,16 +100,26 @@ export function SellScreen({
 
           <Box justifyContent="space-between">
             <Text color="gray">Precio aprox:</Text>
-            <Text>{formatMoney(currentPrice)}</Text>
+            <Text color={isEstimatedPrice ? 'yellow' : undefined}>
+              {isEstimatedPrice ? '~' : ''}{formatMoney(currentPrice)}
+            </Text>
           </Box>
 
           <Box justifyContent="space-between">
             <Text color="gray">Recibirás aprox:</Text>
             <Text bold color="green">{formatMoney(total)}</Text>
           </Box>
+
+          {isEstimatedPrice && (
+            <Text color="yellow" dimColor>Precio de cierre (mercado cerrado)</Text>
+          )}
         </Box>
 
-        <StatusBar screen="confirm" />
+        {/* Footer */}
+        <Box marginTop={1}>
+          <Text color="gray">Enter </Text>
+          <Text color="white">confirmar</Text>
+        </Box>
       </Box>
     );
   }
@@ -142,8 +152,10 @@ export function SellScreen({
         </Box>
 
         <Box justifyContent="space-between">
-          <Text color="gray">Precio actual:</Text>
-          <Text>{currentPrice ? formatMoney(currentPrice) : '--'}</Text>
+          <Text color="gray">{isEstimatedPrice ? 'Precio estimado:' : 'Precio actual:'}</Text>
+          <Text color={isEstimatedPrice ? 'yellow' : undefined}>
+            {currentPrice ? (isEstimatedPrice ? '~' : '') + formatMoney(currentPrice) : '--'}
+          </Text>
         </Box>
 
         <Box justifyContent="space-between">
@@ -185,7 +197,11 @@ export function SellScreen({
         )}
       </Box>
 
-      <StatusBar screen="buy" />
+      {/* Footer */}
+      <Box marginTop={1}>
+        <Text color="gray">Enter </Text>
+        <Text color="white">continuar</Text>
+      </Box>
     </Box>
   );
 }

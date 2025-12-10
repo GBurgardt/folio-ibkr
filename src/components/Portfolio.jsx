@@ -11,9 +11,12 @@ export function Portfolio({
   accountId,
   prices,
   loading,
+  pendingOrdersCount = 0,
   onViewChart,
   onBuy,
   onSearch,
+  onActivity,
+  onOrders,
   onRefresh,
   onQuit,
 }) {
@@ -43,6 +46,10 @@ export function Portfolio({
       }
     } else if (input === '/') {
       onSearch?.();
+    } else if (input === 'a') {
+      onActivity?.();
+    } else if (input === 'o') {
+      onOrders?.();
     } else if (input === 'r') {
       onRefresh?.();
     } else if (input === 'q') {
@@ -84,7 +91,7 @@ export function Portfolio({
               key={position.symbol}
               position={position}
               selected={selectedIndex === index}
-              currentPrice={prices[position.symbol]?.price}
+              currentPrice={position.marketPrice || prices[position.symbol]?.price}
             />
           ))
         )}
@@ -99,7 +106,7 @@ export function Portfolio({
       </Box>
 
       {/* Status bar */}
-      <StatusBar screen="portfolio" />
+      <StatusBar screen="portfolio" pendingOrdersCount={pendingOrdersCount} />
 
       {loading && (
         <Box marginTop={1}>

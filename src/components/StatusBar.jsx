@@ -7,7 +7,8 @@ const shortcuts = {
     { key: 'Enter', label: 'Detalles' },
     { key: 'b', label: 'Comprar' },
     { key: '/', label: 'Buscar' },
-    { key: 'r', label: 'Refrescar' },
+    { key: 'a', label: 'Actividad' },
+    { key: 'o', label: 'Órdenes', showBadge: true },
     { key: 'q', label: 'Salir' },
   ],
   chart: [
@@ -29,7 +30,7 @@ const shortcuts = {
   ],
 };
 
-export function StatusBar({ screen = 'portfolio' }) {
+export function StatusBar({ screen = 'portfolio', pendingOrdersCount = 0 }) {
   const items = shortcuts[screen] || shortcuts.portfolio;
 
   return (
@@ -44,6 +45,9 @@ export function StatusBar({ screen = 'portfolio' }) {
           <Box key={i} gap={1}>
             <Text color="cyan">[{item.key}]</Text>
             <Text color="gray">{item.label}</Text>
+            {item.showBadge && pendingOrdersCount > 0 && (
+              <Text color="yellow" bold>({pendingOrdersCount})</Text>
+            )}
           </Box>
         ))}
       </Box>

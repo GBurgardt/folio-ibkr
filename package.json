@@ -22,13 +22,17 @@
     "analyst": "node projects/market-analyst/index.js",
     "verify": "node projects/verify-portfolio/index.js",
     "check-orders": "node projects/check-orders/index.js",
-    "buy-tsla": "node projects/buy-tsla/index.js"
+    "buy-tsla": "node projects/buy-tsla/index.js",
+    "server": "node server/index.js",
+    "server:paper": "IB_PORT=7497 node server/index.js",
+    "server:setup": "node server/setup-certs.js"
   },
   "dependencies": {
     "asciichart": "^1.5.25",
     "axios": "^1.6.7",
     "chalk": "^4.1.2",
     "dotenv": "^16.4.5",
+    "express": "^4.21.0",
     "ib": "^0.2.9",
     "ink": "^5.0.1",
     "ink-spinner": "^5.0.0",
@@ -36,7 +40,8 @@
     "inquirer": "^8.2.6",
     "openai": "^4.52.7",
     "ora": "^5.4.1",
-    "react": "^18.3.1"
+    "react": "^18.3.1",
+    "ws": "^8.18.0"
   },
   "devDependencies": {
     "tsx": "^4.21.0"

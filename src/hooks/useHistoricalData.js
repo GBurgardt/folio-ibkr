@@ -165,6 +165,14 @@ export function useHistoricalData(getClient, isConnected) {
       client.on('historicalDataEnd', onHistoricalDataEnd);
       client.on('error', onError);
 
+      // Log ALL events for debugging
+      const debugAllEvents = (eventName) => (...args) => {
+        debug(`[EVENT] ${eventName}:`, JSON.stringify(args).slice(0, 200));
+      };
+
+      // Temporarily listen to all events
+      client.on('historicalData', debugAllEvents('historicalData'));
+
       debug(`Calling reqHistoricalData: reqId=${reqId}`);
 
       // Request historical data
