@@ -52,7 +52,7 @@ import { usePortfolio } from '../hooks/usePortfolio.js';
 import { useMarketData } from '../hooks/useMarketData.js';
 import { useTrade } from '../hooks/useTrade.js';
 import { useHistoricalData, DEFAULT_PERIOD } from '../hooks/useHistoricalData.js';
-import { useTradeHistory } from '../hooks/useTradeHistory.js';
+import { useExecutions } from '../hooks/useExecutions.js';
 import { useOrders } from '../hooks/useOrders.js';
 
 import { Loading, ConnectionError, OrderResult } from './Loading.jsx';
@@ -123,13 +123,10 @@ export function App({ paperTrading = false }) {
   } = useHistoricalData(getClient, isConnected);
 
   const {
-    trades,
-    recordBuy,
-    recordSell,
-    getFirstPurchaseDate,
-    calculateBuyPerformance,
-    calculateSellPerformance,
-  } = useTradeHistory();
+    executions,
+    loading: executionsLoading,
+    refresh: refreshExecutions,
+  } = useExecutions(getClient, isConnected);
 
   const {
     orders: pendingOrders,
@@ -310,47 +307,35 @@ export function App({ paperTrading = false }) {
       setLastOrderResult(result);
       // Order result is a terminal state - we'll navigate home after
       setNavStack(['portfolio', 'order-result']);
-
-      // Record the trade in history if order was filled
-      if (result.status === 'Filled' && result.avgFillPrice) {
-        debug('Recording BUY trade:', symbol, quantity, result.avgFillPrice);
-        recordBuy(symbol, quantity, result.avgFillPrice, result.orderId);
+      // Refresh executions to show the new trade
+      if (result.status === 'Filled') {
+        setTimeout(() => refreshExecutions(), 1000);
       }
     } catch (err) {
       console.error('Error buying:', err);
     }
-  }, [buy, recordBuy]);
+  }, [buy, refreshExecutions]);
 
   const handleConfirmSell = useCallback(async (symbol, quantity) => {
     try {
-      // Get avgCost before selling (for P&L calculation)
-      const position = positions.find(p => p.symbol === symbol);
-      const avgCostAtTrade = position?.avgCost;
-
       const result = await sell(symbol, quantity);
       setLastOrderResult(result);
       // Order result is a terminal state - we'll navigate home after
       setNavStack(['portfolio', 'order-result']);
-
-      // Record the trade in history if order was filled
-      if (result.status === 'Filled' && result.avgFillPrice) {
-        debug('Recording SELL trade:', symbol, quantity, result.avgFillPrice);
-        recordSell(symbol, quantity, result.avgFillPrice, result.orderId, avgCostAtTrade);
+      // Refresh executions to show the new trade
+      if (result.status === 'Filled') {
+        setTimeout(() => refreshExecutions(), 1000);
       }
     } catch (err) {
       console.error('Error selling:', err);
     }
-  }, [sell, recordSell, positions]);
+  }, [sell, refreshExecutions]);
 
   const handleActivity = useCallback(() => {
     debug('Opening activity screen');
-    // Fetch current prices for all symbols in trade history
-    const symbols = [...new Set(trades.map(t => t.symbol))];
-    symbols.forEach(symbol => {
-      fetchPrice(symbol).catch(() => {});
-    });
+    refreshExecutions();
     navigateTo('activity');
-  }, [trades, fetchPrice, navigateTo]);
+  }, [refreshExecutions, navigateTo]);
 
   // Orders screen handlers
   const handleOrders = useCallback(() => {
@@ -452,7 +437,6 @@ export function App({ paperTrading = false }) {
           loading={isHistoricalLoading(chartSymbol, chartPeriod)}
           error={getHistoricalError(chartSymbol, chartPeriod)}
           currentPrice={chartPosition?.marketPrice || prices[chartSymbol]?.price}
-          purchaseDate={getFirstPurchaseDate(chartSymbol)}
           onPeriodChange={handleChartPeriodChange}
           onBuy={handleBuy}
           onSell={handleSell}
@@ -542,10 +526,8 @@ export function App({ paperTrading = false }) {
 
       {screen === 'activity' && (
         <ActivityScreen
-          trades={trades}
-          prices={prices}
-          calculateBuyPerformance={calculateBuyPerformance}
-          calculateSellPerformance={calculateSellPerformance}
+          executions={executions}
+          loading={executionsLoading}
           onViewChart={handleViewChart}
           onBack={navigateBack}
         />

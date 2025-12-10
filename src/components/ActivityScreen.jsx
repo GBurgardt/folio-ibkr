@@ -1,6 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
-import { formatMoney, formatPercent, formatRelativeTime } from '../utils/format.js';
 
 const debug = (...args) => {
   if (process.argv.includes('--debug')) {
@@ -9,26 +8,100 @@ const debug = (...args) => {
 };
 
 /**
- * ActivityScreen - Minimal, zen-like trade history view
+ * Parse IB execution time to Date object
+ * Format: "YYYYMMDD HH:MM:SS" or "YYYYMMDD  HH:MM:SS" (double space)
+ */
+const parseExecutionTime = (timeStr) => {
+  if (!timeStr) return null;
+
+  // Handle both single and double space between date and time
+  const normalized = timeStr.replace(/\s+/g, ' ').trim();
+  const [datePart, timePart] = normalized.split(' ');
+
+  if (!datePart || datePart.length !== 8) return null;
+
+  const year = parseInt(datePart.slice(0, 4), 10);
+  const month = parseInt(datePart.slice(4, 6), 10) - 1;
+  const day = parseInt(datePart.slice(6, 8), 10);
+
+  let hours = 0, minutes = 0;
+  if (timePart) {
+    const [h, m] = timePart.split(':');
+    hours = parseInt(h, 10) || 0;
+    minutes = parseInt(m, 10) || 0;
+  }
+
+  return new Date(year, month, day, hours, minutes);
+};
+
+/**
+ * Format execution time for display
+ * - Today: "14:30"
+ * - Yesterday: "ayer"
+ * - This week: "lun", "mar", etc.
+ * - Older: "5 dic"
+ */
+const formatExecutionTime = (timeStr) => {
+  const date = parseExecutionTime(timeStr);
+  if (!date) return '';
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const weekAgo = new Date(today);
+  weekAgo.setDate(weekAgo.getDate() - 7);
+
+  const days = ['dom', 'lun', 'mar', 'mie', 'jue', 'vie', 'sab'];
+  const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+
+  // Today: show time
+  if (date >= today) {
+    const hours = date.getHours().toString().padStart(2, '0');
+    const mins = date.getMinutes().toString().padStart(2, '0');
+    return `${hours}:${mins}`;
+  }
+
+  // Yesterday
+  if (date >= yesterday) {
+    return 'ayer';
+  }
+
+  // Within last week: show day name
+  if (date >= weekAgo) {
+    return days[date.getDay()];
+  }
+
+  // Older: show "day month"
+  return `${date.getDate()} ${months[date.getMonth()]}`;
+};
+
+/**
+ * Format money for display
+ */
+const formatMoney = (value) => {
+  if (value === null || value === undefined) return '';
+  return `$${value.toFixed(2)}`;
+};
+
+/**
+ * ActivityScreen - Execution history from IB
  *
- * Design principles:
- * - One line per trade
+ * Design: Minimal log of trades
+ * - One line per execution
  * - + green for buys, - red for sells
- * - Symbol, quantity × price, gain/loss, relative time
- * - No borders, no filters, no pagination
- * - Navigate with arrows, Enter to view chart, ← to go back
+ * - Symbol, quantity × price, time
+ * - Navigate with arrows, Enter to view chart, Esc to go back
  */
 export function ActivityScreen({
-  trades,
-  prices, // Map of symbol -> currentPrice for calculating performance
-  calculateBuyPerformance,
-  calculateSellPerformance,
+  executions,
+  loading,
   onViewChart,
   onBack,
 }) {
   const [selectedIndex, setSelectedIndex] = useState(0);
 
-  debug(`ActivityScreen render: ${trades?.length || 0} trades`);
+  debug(`ActivityScreen render: ${executions?.length || 0} executions, loading=${loading}`);
 
   // Handle input
   useInput((input, key) => {
@@ -38,88 +111,61 @@ export function ActivityScreen({
     } else if (key.upArrow) {
       setSelectedIndex(prev => Math.max(0, prev - 1));
     } else if (key.downArrow) {
-      setSelectedIndex(prev => Math.min((trades?.length || 1) - 1, prev + 1));
+      setSelectedIndex(prev => Math.min((executions?.length || 1) - 1, prev + 1));
     } else if (key.return) {
-      const selectedTrade = trades?.[selectedIndex];
-      if (selectedTrade) {
-        debug('View chart for:', selectedTrade.symbol);
-        onViewChart?.(selectedTrade.symbol);
+      const selected = executions?.[selectedIndex];
+      if (selected) {
+        debug('View chart for:', selected.symbol);
+        onViewChart?.(selected.symbol);
       }
     }
   });
 
-  // Calculate performance for each trade
-  const tradesWithPerformance = useMemo(() => {
-    if (!trades) return [];
-
-    return trades.map(trade => {
-      let performance = { gain: 0, gainPercent: 0 };
-
-      if (trade.type === 'BUY') {
-        const priceData = prices?.[trade.symbol];
-        const currentPrice = priceData?.price;
-        if (currentPrice) {
-          performance = calculateBuyPerformance(trade, currentPrice);
-        }
-      } else if (trade.type === 'SELL') {
-        performance = calculateSellPerformance(trade);
-      }
-
-      return { ...trade, performance };
-    });
-  }, [trades, prices, calculateBuyPerformance, calculateSellPerformance]);
-
-  // Empty state
-  if (!trades || trades.length === 0) {
+  // Loading state
+  if (loading && (!executions || executions.length === 0)) {
     return (
       <Box flexDirection="column" padding={1}>
-        <Text color="gray">Sin movimientos aún</Text>
+        <Text color="gray">cargando...</Text>
+      </Box>
+    );
+  }
+
+  // Empty state
+  if (!executions || executions.length === 0) {
+    return (
+      <Box flexDirection="column" padding={1}>
+        <Text color="gray">Sin actividad hoy</Text>
       </Box>
     );
   }
 
   return (
     <Box flexDirection="column" padding={1}>
-      {/* Trade list */}
-      <Box flexDirection="column" marginBottom={1}>
-        {tradesWithPerformance.map((trade, index) => (
-          <TradeRow
-            key={trade.id}
-            trade={trade}
+      {/* Execution list */}
+      <Box flexDirection="column">
+        {executions.map((exec, index) => (
+          <ExecutionRow
+            key={exec.id || index}
+            execution={exec}
             isSelected={index === selectedIndex}
           />
         ))}
-      </Box>
-
-      {/* Footer */}
-      <Box marginTop={1}>
-        <Text color="gray">Enter </Text>
-        <Text color="white">ver gráfico</Text>
       </Box>
     </Box>
   );
 }
 
 /**
- * Single trade row component
- * Format: +  GOOG   19 × $174               +$2,687 (+81%)      hace 3 días
+ * Single execution row
+ * Format: ▸ +  GOOG    19 × $174.23      14:30
  */
-function TradeRow({ trade, isSelected }) {
-  const isBuy = trade.type === 'BUY';
+function ExecutionRow({ execution, isSelected }) {
+  const isBuy = execution.side === 'BOT';
   const typeSymbol = isBuy ? '+' : '-';
   const typeColor = isBuy ? 'green' : 'red';
 
-  const { gain, gainPercent } = trade.performance;
-  const hasPerformance = gain !== 0 || gainPercent !== 0;
-  const isPositiveGain = gain >= 0;
-  const gainColor = isPositiveGain ? 'green' : 'red';
-
-  // Format the trade info
-  const quantityPrice = `${trade.quantity} × ${formatMoney(trade.price)}`;
-  const gainText = hasPerformance
-    ? `${isPositiveGain ? '+' : ''}${formatMoney(gain)} (${isPositiveGain ? '+' : ''}${formatPercent(gainPercent)})`
-    : '';
-  const timeText = formatRelativeTime(trade.timestamp);
+  const quantityPrice = `${execution.quantity} × ${formatMoney(execution.price)}`;
+  const timeText = formatExecutionTime(execution.time);
 
   return (
     <Box>
@@ -130,19 +176,12 @@ function TradeRow({ trade, isSelected }) {
       <Text color={typeColor} bold>{typeSymbol}  </Text>
 
       {/* Symbol */}
-      <Text color="white" bold>{trade.symbol.padEnd(6)}</Text>
+      <Text color="white" bold>{execution.symbol.padEnd(6)}</Text>
 
       {/* Quantity × Price */}
-      <Text color="gray">{quantityPrice.padEnd(18)}</Text>
+      <Text color="gray">{quantityPrice.padEnd(20)}</Text>
 
-      {/* Gain/Loss */}
-      {hasPerformance ? (
-        <Text color={gainColor}>{gainText.padEnd(22)}</Text>
-      ) : (
-        <Text color="gray">{' '.repeat(22)}</Text>
-      )}
-
-      {/* Relative time */}
+      {/* Time */}
       <Text color="gray">{timeText}</Text>
     </Box>
   );

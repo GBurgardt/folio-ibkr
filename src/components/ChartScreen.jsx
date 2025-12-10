@@ -140,7 +140,6 @@ export function ChartScreen({
   loading,
   error,
   currentPrice,
-  purchaseDate, // Timestamp of first purchase (not used but kept for API compatibility)
   onPeriodChange,
   onBuy,
   onSell,
