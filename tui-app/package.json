@@ -1,0 +1,14 @@
+{
+  "name": "folio-tui",
+  "version": "1.0.0",
+  "description": "Folio TUI - Interactive Brokers Portfolio Manager",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "start": "bun run src/index.ts",
+    "dev": "bun --watch run src/index.ts"
+  },
+  "dependencies": {
+    "@opentui/core": "latest"
+  }
+}
