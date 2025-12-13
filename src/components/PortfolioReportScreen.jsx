@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { Box, Text, useInput, useStdout } from 'ink';
 import asciichart from 'asciichart';
 import { formatMoney, formatPercent } from '../utils/format.js';
+import { resampleLinear } from '../utils/resample.js';
 
 const debug = (...args) => {
   if (process.argv.includes('--debug')) {
@@ -10,13 +11,13 @@ const debug = (...args) => {
 };
 
 const PORTFOLIO_PERIODS = {
-  '30M': { ms: 30 * 60 * 1000, label: '30 min' },
-  '2H': { ms: 2 * 60 * 60 * 1000, label: '2 horas' },
-  '6H': { ms: 6 * 60 * 60 * 1000, label: '6 horas' },
-  '1D': { ms: 24 * 60 * 60 * 1000, label: '1 día' },
-  'ALL': { ms: null, label: 'sesión' },
+  '1M': { kind: 'months', n: 1, label: '1 mes' },
+  '6M': { kind: 'months', n: 6, label: '6 meses' },
+  '1Y': { kind: 'years', n: 1, label: '1 año' },
+  'ALL': { kind: 'all', n: null, label: 'desde inicio' },
 };
-const PORTFOLIO_PERIOD_KEYS = ['30M', '2H', '6H', '1D', 'ALL'];
+// Small -> big (↓ zoom in, ↑ zoom out)
+const PORTFOLIO_PERIOD_KEYS = ['1M', '6M', '1Y', 'ALL'];
 const DEFAULT_PERIOD = 'ALL';
 
 // Keep y-axis padding consistent with asciichart formatting:
@@ -53,23 +54,31 @@ function formatDateForAxis(date, periodKey, startTs, endTs) {
   const rangeMs = Math.max(0, endTs - startTs);
 
   // Short ranges: show time, longer: show day/month.
-  if (periodKey === '30M' || periodKey === '2H' || rangeMs <= 6 * 60 * 60 * 1000) {
+  if (rangeMs <= 6 * 60 * 60 * 1000) {
     const h = String(date.getHours()).padStart(2, '0');
     const m = String(date.getMinutes()).padStart(2, '0');
     return `${h}:${m}`;
   }
 
-  if (periodKey === '1D' || rangeMs <= 24 * 60 * 60 * 1000) {
+  if (rangeMs <= 24 * 60 * 60 * 1000) {
     const h = String(date.getHours()).padStart(2, '0');
     return `${date.getDate()}/${date.getMonth() + 1} ${h}h`;
   }
 
+  if (rangeMs >= 2 * 365 * 24 * 60 * 60 * 1000) {
+    return String(date.getFullYear());
+  }
+
   const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  const y = String(date.getFullYear()).slice(-2);
+  if (rangeMs >= 120 * 24 * 60 * 60 * 1000) {
+    return `${months[date.getMonth()]} '${y}`;
+  }
   return `${date.getDate()} ${months[date.getMonth()]}`;
 }
 
 function generateXAxisLabels(dates, chartWidth, periodKey, startTs, endTs) {
-  if (!dates || dates.length === 0) return { axisLine: '' };
+  if (!dates || dates.length === 0 || chartWidth <= 0) return { ticksLine: '', labelsLine: '' };
 
   const numLabels = 3;
   const labelPositions = [];
@@ -79,7 +88,11 @@ function generateXAxisLabels(dates, chartWidth, periodKey, startTs, endTs) {
     labelPositions.push({ position: charPosition, date: dates[dataIndex] });
   }
 
-  const axisChars = new Array(chartWidth + Y_AXIS_PADDING).fill(' ');
+  const ticksChars = new Array(chartWidth + Y_AXIS_PADDING).fill(' ');
+  for (let x = 0; x < chartWidth; x++) ticksChars[Y_AXIS_PADDING + x] = '─';
+  for (const { position } of labelPositions) ticksChars[Y_AXIS_PADDING + position] = '┬';
+
+  const labelsChars = new Array(chartWidth + Y_AXIS_PADDING).fill(' ');
   for (let i = 0; i < labelPositions.length; i++) {
     const { position, date } = labelPositions[i];
     const labelText = formatDateForAxis(date, periodKey, startTs, endTs);
@@ -90,12 +103,12 @@ function generateXAxisLabels(dates, chartWidth, periodKey, startTs, endTs) {
     else if (i === labelPositions.length - 1) adjustedStart = Math.max(Y_AXIS_PADDING, startPos - labelText.length);
     else adjustedStart = Math.max(Y_AXIS_PADDING, startPos - Math.floor(labelText.length / 2));
 
-    for (let j = 0; j < labelText.length && adjustedStart + j < axisChars.length; j++) {
-      axisChars[adjustedStart + j] = labelText[j];
+    for (let j = 0; j < labelText.length && adjustedStart + j < labelsChars.length; j++) {
+      labelsChars[adjustedStart + j] = labelText[j];
     }
   }
 
-  return { axisLine: axisChars.join('') };
+  return { ticksLine: ticksChars.join(''), labelsLine: labelsChars.join('') };
 }
 
 function clamp(n, min, max) {
@@ -208,8 +221,9 @@ export function PortfolioReportScreen({
 
   const terminalWidth = stdout?.columns || 80;
   const terminalHeight = stdout?.rows || 24;
-  const chartWidth = Math.max(20, Math.min(terminalWidth - 15, 100));
-  const chartHeight = Math.max(10, Math.min(terminalHeight - 10, 22));
+  const innerWidth = Math.max(0, terminalWidth - 2); // padding={1} left+right
+  const chartWidth = Math.max(20, innerWidth - Y_AXIS_PADDING);
+  const chartHeight = Math.max(10, terminalHeight - 7);
 
   // Unified input: Esc back, ↑↓ zoom
   useInput((input, key) => {
@@ -233,9 +247,12 @@ export function PortfolioReportScreen({
     if (!history || history.length === 0) return [];
 
     const period = PORTFOLIO_PERIODS[selectedPeriod];
-    if (!period || !period.ms) return history;
+    if (!period || period.kind === 'all') return history;
 
-    const cutoff = Date.now() - period.ms;
+    const cutoffDate = new Date();
+    if (period.kind === 'months') cutoffDate.setMonth(cutoffDate.getMonth() - period.n);
+    if (period.kind === 'years') cutoffDate.setFullYear(cutoffDate.getFullYear() - period.n);
+    const cutoff = cutoffDate.getTime();
     return history.filter(p => p.ts >= cutoff);
   }, [history, selectedPeriod]);
 
@@ -250,18 +267,11 @@ export function PortfolioReportScreen({
     const valuesRaw = filteredHistory.map(p => p.netLiquidation);
     const datesRaw = filteredHistory.map(p => new Date(p.ts));
 
-    if (valuesRaw.length <= chartWidth) {
-      return { values: valuesRaw, dates: datesRaw, startTs, endTs };
-    }
+    if (valuesRaw.length === 0) return { values: [], dates: [], startTs, endTs };
 
-    const step = valuesRaw.length / chartWidth;
-    const values = [];
-    const dates = [];
-    for (let i = 0; i < chartWidth; i++) {
-      const idx = Math.min(Math.floor(i * step), valuesRaw.length - 1);
-      values.push(valuesRaw[idx]);
-      dates.push(datesRaw[idx]);
-    }
+    const values = resampleLinear(valuesRaw, chartWidth);
+    const ts = resampleLinear(datesRaw.map(d => d.getTime()), chartWidth);
+    const dates = ts.map(t => new Date(t));
     return { values, dates, startTs, endTs };
   }, [filteredHistory, chartWidth]);
 
@@ -346,7 +356,8 @@ export function PortfolioReportScreen({
       {/* Chart */}
       <Box flexDirection="column">
         <Text>{chartWithMarks}</Text>
-        <Text color="gray">{xAxis.axisLine}</Text>
+        <Text color="gray">{xAxis.ticksLine}</Text>
+        <Text color="gray">{xAxis.labelsLine}</Text>
       </Box>
 
       {/* Footer */}

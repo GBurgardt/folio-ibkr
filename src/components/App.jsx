@@ -54,6 +54,8 @@ import { useTrade } from '../hooks/useTrade.js';
 import { useHistoricalData, DEFAULT_PERIOD } from '../hooks/useHistoricalData.js';
 import { useExecutions } from '../hooks/useExecutions.js';
 import { useOrders } from '../hooks/useOrders.js';
+import { usePortfolioHistory } from '../hooks/usePortfolioHistory.js';
+import { useExecutionHistory } from '../hooks/useExecutionHistory.js';
 
 import { Loading, ConnectionError, OrderResult } from './Loading.jsx';
 import Portfolio from './Portfolio.jsx';
@@ -184,7 +186,19 @@ export function App({ paperTrading = false }) {
   const [buySymbol, setBuySymbol] = useState(null);
   const [sellData, setSellData] = useState(null);
   const [lastOrderResult, setLastOrderResult] = useState(null);
-  const [portfolioHistory, setPortfolioHistory] = useState([]);
+
+  const { history: portfolioHistory, seedIfEmpty: seedPortfolioHistory } = usePortfolioHistory({
+    accountId,
+    isConnected,
+    netLiquidation: accountData?.netLiquidation,
+    cash: computed?.cash,
+  });
+
+  const { allExecutions } = useExecutionHistory({
+    accountId,
+    isConnected,
+    executions,
+  });
 
   // Conectar al iniciar - SOLO UNA VEZ
   const hasConnectedRef = React.useRef(false);
@@ -253,29 +267,6 @@ export function App({ paperTrading = false }) {
     }, 60_000);
     return () => clearInterval(id);
   }, [isConnected, refreshExecutions]);
-
-  // Guardar historial de portafolio (sesión) para el reporte.
-  useEffect(() => {
-    if (!isConnected) return;
-    const net = accountData?.netLiquidation;
-    const cash = computed?.cash;
-    if (!Number.isFinite(net) || net <= 0) return;
-
-    const now = Date.now();
-    setPortfolioHistory(prev => {
-      const last = prev[prev.length - 1];
-      if (last) {
-        // Evitar puntos demasiado seguidos.
-        if (now - last.ts < 5_000) return prev;
-        // Evitar duplicados (mismo valor).
-        if (Math.abs(last.netLiquidation - net) < 0.01 && Math.abs(last.cash - cash) < 0.01) return prev;
-      }
-      const next = [...prev, { ts: now, netLiquidation: net, cash: Number.isFinite(cash) ? cash : 0 }];
-      // Limitar tamaño para no crecer indefinidamente.
-      if (next.length > 2000) next.splice(0, next.length - 2000);
-      return next;
-    });
-  }, [isConnected, accountData?.netLiquidation, computed?.cash]);
 
   // Calculate effective cash (total cash minus reserved by pending BUY orders)
   const reservedCash = useMemo(() => {
@@ -383,8 +374,9 @@ export function App({ paperTrading = false }) {
 
   const handleReport = useCallback(() => {
     debug('Opening portfolio report');
+    seedPortfolioHistory();
     navigateTo('report');
-  }, [navigateTo]);
+  }, [navigateTo, seedPortfolioHistory]);
 
   // Orders screen handlers
   const handleOrders = useCallback(() => {
@@ -482,7 +474,7 @@ export function App({ paperTrading = false }) {
       {screen === 'report' && (
         <PortfolioReportScreen
           history={portfolioHistory}
-          executions={executions}
+          executions={allExecutions}
           onBack={navigateBack}
         />
       )}

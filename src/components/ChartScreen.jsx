@@ -3,12 +3,17 @@ import { Box, Text, useInput, useStdout } from 'ink';
 import asciichart from 'asciichart';
 import { formatMoney, formatPercent } from '../utils/format.js';
 import { PERIODS, PERIOD_KEYS, DEFAULT_PERIOD } from '../hooks/useHistoricalData.js';
+import { resampleLinear } from '../utils/resample.js';
 
 const debug = (...args) => {
   if (process.argv.includes('--debug')) {
     console.error('[CHART-SCREEN]', ...args);
   }
 };
+
+// Keep y-axis padding consistent with asciichart formatting:
+// formatMoney(...).padStart(10) => 10 chars, plus a space before plot = ~11
+const Y_AXIS_PADDING = 11;
 
 /**
  * Parse date from IB format to readable format
@@ -48,8 +53,8 @@ const formatDateForAxis = (date, period) => {
       // For 1 week: show day name (Lun, Mar, etc)
       return days[date.getDay()];
     case '1M':
-      // For 1 month: show day number
-      return `${date.getDate()}`;
+      // For 1 month: show day + month for clarity (often spans two months)
+      return `${date.getDate()} ${months[date.getMonth()]}`;
     case '3M':
     case '6M':
       // For 3-6 months: show "day mon" (15 Dic)
@@ -66,68 +71,88 @@ const formatDateForAxis = (date, period) => {
  * Generate X axis labels for the chart
  * Returns object with axis line and first/last date for context
  */
-const generateXAxisLabels = (historicalData, chartWidth, period) => {
-  if (!historicalData || historicalData.length === 0) return { axisLine: '', firstDate: null, lastDate: null };
+function clamp(n, min, max) {
+  return Math.max(min, Math.min(max, n));
+}
 
-  const dates = historicalData.map(bar => parseIBDate(bar.date));
-  const firstDate = dates[0];
-  const lastDate = dates[dates.length - 1];
+function dateAtFraction(dates, fraction) {
+  if (!dates || dates.length === 0) return null;
+  if (dates.length === 1) return dates[0];
 
-  // Sample dates to fit chart width
-  let sampledDates = dates;
-  if (dates.length > chartWidth) {
-    const step = dates.length / chartWidth;
-    sampledDates = [];
-    for (let i = 0; i < chartWidth; i++) {
-      const index = Math.min(Math.floor(i * step), dates.length - 1);
-      sampledDates.push(dates[index]);
-    }
+  const f = clamp(fraction, 0, 1);
+  const pos = f * (dates.length - 1);
+  const left = Math.floor(pos);
+  const right = Math.min(left + 1, dates.length - 1);
+  const t = pos - left;
+
+  const a = dates[left];
+  const b = dates[right];
+  if (!a || !b) return a || b || null;
+
+  const ta = a.getTime();
+  const tb = b.getTime();
+  return new Date(ta + (tb - ta) * t);
+}
+
+function labelCountFor(period, plotWidth) {
+  const maxByWidth = clamp(Math.floor(plotWidth / 14), 3, 9);
+  switch (period) {
+    case '1W':
+      return clamp(7, 3, maxByWidth);
+    case '1M':
+      return clamp(5, 3, maxByWidth);
+    case '3M':
+    case '6M':
+      return clamp(4, 3, maxByWidth);
+    case '1Y':
+      return clamp(6, 3, maxByWidth);
+    default:
+      return clamp(4, 3, maxByWidth);
+  }
+}
+
+const generateXAxisLabels = (dates, plotWidth, period) => {
+  if (!dates || dates.length === 0 || plotWidth <= 0) {
+    return { ticksLine: '', labelsLine: '', firstDate: null, lastDate: null };
   }
 
-  // Show just first, middle, and last date for cleaner look
-  const numLabels = 3;
-  const labelPositions = [];
+  const firstDate = dates[0];
+  const lastDate = dates[dates.length - 1];
+  const numLabels = labelCountFor(period, plotWidth);
 
+  const labelPositions = [];
   for (let i = 0; i < numLabels; i++) {
-    const dataIndex = Math.floor((i / (numLabels - 1)) * (sampledDates.length - 1));
-    const charPosition = Math.floor((i / (numLabels - 1)) * chartWidth);
+    const frac = numLabels === 1 ? 1 : i / (numLabels - 1);
+    const charPosition = Math.floor(frac * (plotWidth - 1));
     labelPositions.push({
       position: charPosition,
-      date: sampledDates[dataIndex],
+      date: dateAtFraction(dates, frac),
     });
   }
 
-  // Build the axis string
-  // Y axis padding: "$XXX.XX" padStart(10) + " ┤" = ~11 chars
-  const yAxisPadding = 11;
+  const ticksChars = new Array(plotWidth + Y_AXIS_PADDING).fill(' ');
+  for (let x = 0; x < plotWidth; x++) ticksChars[Y_AXIS_PADDING + x] = '─';
+  for (const label of labelPositions) ticksChars[Y_AXIS_PADDING + label.position] = '┬';
 
-  // Create array of spaces for the axis
-  const axisChars = new Array(chartWidth + yAxisPadding).fill(' ');
-
-  // Place labels
+  const labelsChars = new Array(plotWidth + Y_AXIS_PADDING).fill(' ');
   for (let i = 0; i < labelPositions.length; i++) {
     const label = labelPositions[i];
     const labelText = formatDateForAxis(label.date, period);
-    const startPos = yAxisPadding + label.position;
+    const startPos = Y_AXIS_PADDING + label.position;
 
-    // Center the label on the position (except first and last)
     let adjustedStart = startPos;
-    if (i === 0) {
-      adjustedStart = yAxisPadding; // First label at start
-    } else if (i === labelPositions.length - 1) {
-      adjustedStart = Math.max(yAxisPadding, startPos - labelText.length); // Last label at end
-    } else {
-      adjustedStart = Math.max(yAxisPadding, startPos - Math.floor(labelText.length / 2)); // Center
-    }
+    if (i === 0) adjustedStart = Y_AXIS_PADDING;
+    else if (i === labelPositions.length - 1) adjustedStart = Math.max(Y_AXIS_PADDING, startPos - labelText.length);
+    else adjustedStart = Math.max(Y_AXIS_PADDING, startPos - Math.floor(labelText.length / 2));
 
-    // Place label characters
-    for (let j = 0; j < labelText.length && adjustedStart + j < axisChars.length; j++) {
-      axisChars[adjustedStart + j] = labelText[j];
+    for (let j = 0; j < labelText.length && adjustedStart + j < labelsChars.length; j++) {
+      labelsChars[adjustedStart + j] = labelText[j];
     }
   }
 
   return {
-    axisLine: axisChars.join(''),
+    ticksLine: ticksChars.join(''),
+    labelsLine: labelsChars.join(''),
     firstDate,
     lastDate,
   };
@@ -155,7 +180,11 @@ export function ChartScreen({
 
   // Get terminal width for chart sizing
   const terminalWidth = stdout?.columns || 80;
-  const chartWidth = Math.min(terminalWidth - 15, 100);
+  const terminalHeight = stdout?.rows || 24;
+  const innerWidth = Math.max(0, terminalWidth - 2); // padding={1} left+right
+  const chartWidth = Math.max(20, innerWidth - Y_AXIS_PADDING);
+  const chromeHeight = owned ? 8 : 7; // padding + header + gaps + x-axis + footer
+  const chartHeight = Math.max(8, terminalHeight - chromeHeight);
 
   debug(`ChartScreen render: symbol=${symbol} owned=${owned} period=${selectedPeriod}`);
 
@@ -200,18 +229,11 @@ export function ChartScreen({
       return null;
     }
 
-    const closes = historicalData.map(bar => bar.close);
+    const closes = historicalData.map(bar => bar.close).filter(x => Number.isFinite(x));
+    if (closes.length === 0) return null;
 
-    // Resample if needed to fit terminal width
-    let sampledData = closes;
-    if (closes.length > chartWidth) {
-      const step = closes.length / chartWidth;
-      sampledData = [];
-      for (let i = 0; i < chartWidth; i++) {
-        const index = Math.min(Math.floor(i * step), closes.length - 1);
-        sampledData.push(closes[index]);
-      }
-    }
+    // Resample to exactly chartWidth points (downsample or upsample) so it fills the screen.
+    let sampledData = resampleLinear(closes, chartWidth);
 
     // Add current price as last point if available
     if (currentPrice && sampledData.length > 0) {
@@ -256,7 +278,7 @@ export function ChartScreen({
 
     try {
       const chart = asciichart.plot(chartData.prices, {
-        height: 12,
+        height: chartHeight,
         colors: [color],
         format: (x) => formatMoney(x).padStart(10),
       });
@@ -267,12 +289,13 @@ export function ChartScreen({
       debug('Chart render error:', err.message);
       return null;
     }
-  }, [chartData, owned, avgCost]);
+  }, [chartData, owned, avgCost, chartHeight]);
 
   // Generate X axis
   const xAxisData = useMemo(() => {
-    return generateXAxisLabels(historicalData, chartWidth, selectedPeriod);
-  }, [historicalData, chartWidth, selectedPeriod]);
+    const dates = (historicalData || []).map(bar => parseIBDate(bar.date)).filter(Boolean);
+    return generateXAxisLabels(dates, chartData?.prices?.length || chartWidth, selectedPeriod);
+  }, [historicalData, chartWidth, selectedPeriod, chartData?.prices?.length]);
 
   // Display price - prefer currentPrice, fallback to last historical
   const displayPrice = currentPrice || chartData?.last;
@@ -382,7 +405,8 @@ export function ChartScreen({
         )}
 
         {/* X Axis with dates */}
-        <Text color="gray">{xAxisData.axisLine}</Text>
+        <Text color="gray">{xAxisData.ticksLine}</Text>
+        <Text color="gray">{xAxisData.labelsLine}</Text>
       </Box>
 
       {/* Footer: Period on left, Actions on right */}
