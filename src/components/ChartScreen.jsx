@@ -184,11 +184,12 @@ export function ChartScreen({
   const innerWidth = Math.max(0, terminalWidth - 2); // padding={1} left+right
   const chartWidth = Math.max(20, innerWidth - Y_AXIS_PADDING);
 
-  // Chart height: elegant proportions, not stretched to infinity
-  // Max 16 lines for the chart itself (leaves room for context info)
-  // Min 8 for readability, scales with terminal but with limits
-  const availableHeight = terminalHeight - 10; // header(2) + info(1) + xaxis(2) + footer(2) + margins(3)
-  const chartHeight = Math.min(16, Math.max(8, availableHeight));
+  // Chart height: ~70% of available space, elegant proportions
+  // Reserve space for: header(2) + context(1) + xaxis(2) + footer(2) + padding(2) = 9 lines
+  const reservedLines = 9;
+  const availableHeight = terminalHeight - reservedLines;
+  // Use 70% of available, with min 6 and max 14
+  const chartHeight = Math.min(14, Math.max(6, Math.floor(availableHeight * 0.7)));
 
   debug(`ChartScreen render: symbol=${symbol} owned=${owned} period=${selectedPeriod}`);
 
@@ -383,15 +384,16 @@ export function ChartScreen({
 
   return (
     <Box flexDirection="column" padding={1}>
-      {/* ═══ HEADER: Symbol + Price + Change ═══ */}
+      {/* ═══ HEADER: Symbol + Price + Period + Change ═══ */}
       <Box justifyContent="space-between">
         <Box>
           <Text bold color="white">{symbol}</Text>
           <Text color="gray">  </Text>
           <Text bold color="white">{formatMoney(displayPrice)}</Text>
+          <Text color="gray">  </Text>
+          <Text color="cyan">{PERIODS[selectedPeriod].label}</Text>
         </Box>
         <Box>
-          {/* Period change - always shown */}
           <Text color={periodColor}>
             {periodArrow} {displaySign}{formatMoney(Math.abs(chartData.change))} ({formatPercent(Math.abs(chartData.changePercent))})
           </Text>
@@ -411,7 +413,6 @@ export function ChartScreen({
             rango: {formatMoney(chartData.min)} — {formatMoney(chartData.max)}
           </Text>
         )}
-        <Text color="gray">{PERIODS[selectedPeriod].label}</Text>
       </Box>
 
       {/* ═══ CHART ═══ */}

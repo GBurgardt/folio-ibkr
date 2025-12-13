@@ -224,9 +224,10 @@ export function PortfolioReportScreen({
   const innerWidth = Math.max(0, terminalWidth - 2); // padding={1} left+right
   const chartWidth = Math.max(20, innerWidth - Y_AXIS_PADDING);
 
-  // Chart height: elegant proportions, max 16 lines
-  const availableHeight = terminalHeight - 9; // header(2) + context(1) + xaxis(2) + footer(2) + margins(2)
-  const chartHeight = Math.min(16, Math.max(10, availableHeight));
+  // Chart height: ~70% of available space, elegant proportions
+  const reservedLines = 9;
+  const availableHeight = terminalHeight - reservedLines;
+  const chartHeight = Math.min(14, Math.max(6, Math.floor(availableHeight * 0.7)));
 
   // Unified input: Esc back, ↑↓ zoom
   useInput((input, key) => {
@@ -353,12 +354,14 @@ export function PortfolioReportScreen({
 
   return (
     <Box flexDirection="column" padding={1}>
-      {/* ═══ HEADER: Title + Value + Change ═══ */}
+      {/* ═══ HEADER: Title + Value + Period + Change ═══ */}
       <Box justifyContent="space-between">
         <Box>
           <Text bold color="white">portafolio</Text>
           <Text color="gray">  </Text>
           <Text bold color="white">{formatMoney(chartData.last)}</Text>
+          <Text color="gray">  </Text>
+          <Text color="cyan">{PORTFOLIO_PERIODS[selectedPeriod].label}</Text>
         </Box>
         <Box>
           <Text color={displayColor}>
@@ -367,12 +370,11 @@ export function PortfolioReportScreen({
         </Box>
       </Box>
 
-      {/* ═══ CONTEXT LINE: Range + Period ═══ */}
+      {/* ═══ CONTEXT LINE: Range ═══ */}
       <Box justifyContent="space-between" marginBottom={0}>
         <Text color="gray">
           rango: {formatMoney(minValue)} — {formatMoney(maxValue)}
         </Text>
-        <Text color="gray">{PORTFOLIO_PERIODS[selectedPeriod].label}</Text>
       </Box>
 
       {/* ═══ CHART ═══ */}
