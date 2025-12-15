@@ -31,7 +31,7 @@ export function loadFavorites() {
       }
     }
   } catch (err) {
-    console.log('[FAVORITES] Error cargando favoritos:', err.message);
+    console.log('[FAVORITES] Error loading favorites:', err.message);
   }
 
   // Crear archivo por defecto (desde el ejemplo si existe)
@@ -44,7 +44,7 @@ export function loadFavorites() {
       }
     }
     fs.writeFileSync(FAVORITES_FILE, JSON.stringify(seed, null, 2));
-    console.log('[FAVORITES] Archivo de favoritos creado con valores por defecto');
+    console.log('[FAVORITES] Favorites file created with defaults');
   } catch (err) {
     // Ignorar
   }
@@ -61,7 +61,7 @@ export function saveFavorites(favorites) {
     fs.writeFileSync(FAVORITES_FILE, JSON.stringify(normalized, null, 2));
     return true;
   } catch (err) {
-    console.log('[FAVORITES] Error guardando favoritos:', err.message);
+    console.log('[FAVORITES] Error saving favorites:', err.message);
     return false;
   }
 }

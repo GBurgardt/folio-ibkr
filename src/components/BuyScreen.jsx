@@ -26,12 +26,12 @@ export function BuyScreen({
     const qty = quantity.toLowerCase() === 'max' ? maxShares : parseInt(quantity, 10);
 
     if (isNaN(qty) || qty <= 0) {
-      setError('Ingresá un número válido');
+      setError('Enter a valid number');
       return;
     }
 
     if (qty > maxShares) {
-      setError(`Máximo ${maxShares} acciones con tu cash disponible`);
+      setError(`Max ${maxShares} shares with your available cash`);
       return;
     }
 
@@ -66,7 +66,7 @@ export function BuyScreen({
           paddingX={2}
           paddingY={1}
         >
-          <Text>Obteniendo precio de {symbol}...</Text>
+          <Text>Fetching price for {symbol}...</Text>
         </Box>
       </Box>
     );
@@ -81,7 +81,7 @@ export function BuyScreen({
           paddingX={2}
           paddingY={1}
         >
-          <Text color="red">No se pudo obtener el precio de {symbol}</Text>
+          <Text color="red">Could not fetch price for {symbol}</Text>
         </Box>
       </Box>
     );
@@ -100,7 +100,7 @@ export function BuyScreen({
           paddingX={2}
           paddingY={1}
         >
-          <Text bold color="yellow">¿Confirmar compra?</Text>
+          <Text bold color="yellow">Confirm buy?</Text>
         </Box>
 
         <Box
@@ -113,33 +113,33 @@ export function BuyScreen({
           gap={1}
         >
           <Box justifyContent="space-between">
-            <Text color="gray">Cantidad:</Text>
+            <Text color="gray">Quantity:</Text>
             <Text bold>{qty} × {symbol}</Text>
           </Box>
 
           <Box justifyContent="space-between">
-            <Text color="gray">Precio aprox:</Text>
+            <Text color="gray">Est. price:</Text>
             <Text color={isEstimatedPrice ? 'yellow' : undefined}>
               {isEstimatedPrice ? '~' : ''}{formatMoney(currentPrice)}
             </Text>
           </Box>
 
           <Box justifyContent="space-between">
-            <Text color="gray">Total estimado:</Text>
+            <Text color="gray">Est. total:</Text>
             <Text bold color="white">{formatMoney(total)}</Text>
           </Box>
 
-          <Text color="gray" dimColor>Incluye 5% margen para comisiones</Text>
+          <Text color="gray" dimColor>Includes a 5% buffer (spread + fees)</Text>
 
           {isEstimatedPrice && (
-            <Text color="yellow" dimColor>Precio de cierre (mercado cerrado)</Text>
+            <Text color="yellow" dimColor>Close price (market closed)</Text>
           )}
         </Box>
 
         {/* Footer */}
         <Box marginTop={1}>
           <Text color="gray">Enter </Text>
-          <Text color="white">confirmar</Text>
+          <Text color="white">confirm</Text>
         </Box>
       </Box>
     );
@@ -154,7 +154,7 @@ export function BuyScreen({
         paddingX={2}
         paddingY={1}
       >
-        <Text bold>Comprar {symbol}</Text>
+        <Text bold>Buy {symbol}</Text>
       </Box>
 
       {/* Info */}
@@ -168,26 +168,26 @@ export function BuyScreen({
         gap={1}
       >
         <Box justifyContent="space-between">
-          <Text color="gray">Cash disponible{pendingOrdersCount > 0 ? '*' : ''}:</Text>
+          <Text color="gray">Available cash{pendingOrdersCount > 0 ? '*' : ''}:</Text>
           <Text color="green">{formatMoney(availableCash)}</Text>
         </Box>
 
         {pendingOrdersCount > 0 && (
           <Box>
-            <Text color="gray" dimColor>*descontando {pendingOrdersCount} orden{pendingOrdersCount > 1 ? 'es' : ''} pendiente{pendingOrdersCount > 1 ? 's' : ''}</Text>
+            <Text color="gray" dimColor>*excluding {pendingOrdersCount} pending order{pendingOrdersCount > 1 ? 's' : ''}</Text>
           </Box>
         )}
 
         <Box justifyContent="space-between">
-          <Text color="gray">{isEstimatedPrice ? 'Precio estimado:' : 'Precio actual:'}</Text>
+          <Text color="gray">{isEstimatedPrice ? 'Estimated price:' : 'Current price:'}</Text>
           <Text color={isEstimatedPrice ? 'yellow' : undefined}>
             {isEstimatedPrice ? '~' : ''}{formatMoney(currentPrice)}
           </Text>
         </Box>
 
         <Box justifyContent="space-between">
-          <Text color="gray">Máximo:</Text>
-          <Text>{maxShares} acciones</Text>
+          <Text color="gray">Max:</Text>
+          <Text>{maxShares} shares</Text>
         </Box>
       </Box>
 
@@ -202,19 +202,19 @@ export function BuyScreen({
         gap={1}
       >
         <Box>
-          <Text color="gray">Cantidad: </Text>
+          <Text color="gray">Quantity: </Text>
           <TextInput
             value={quantity}
             onChange={setQuantity}
             onSubmit={handleSubmit}
-            placeholder="Ej: 10 o 'max'"
+            placeholder="e.g. 10 or 'max'"
           />
         </Box>
 
         {quantity && !isNaN(parseInt(quantity, 10)) && (
           <Box>
             <Text color="gray">
-              Costo estimado: {formatMoney(parseInt(quantity, 10) * currentPrice * ORDER_COST_BUFFER)}
+              Est. cost: {formatMoney(parseInt(quantity, 10) * currentPrice * ORDER_COST_BUFFER)}
             </Text>
           </Box>
         )}
@@ -227,7 +227,7 @@ export function BuyScreen({
       {/* Footer */}
       <Box marginTop={1}>
         <Text color="gray">Enter </Text>
-        <Text color="white">continuar</Text>
+        <Text color="white">continue</Text>
       </Box>
     </Box>
   );

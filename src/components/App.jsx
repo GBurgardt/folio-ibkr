@@ -70,14 +70,14 @@ import Breadcrumb from './Breadcrumb.jsx';
 
 // Screen name translations for breadcrumb and back button
 const SCREEN_NAMES = {
-  portfolio: 'inicio',
-  report: 'reporte',
-  chart: 'gráfico',
-  buy: 'comprar',
-  sell: 'vender',
-  search: 'buscar',
-  activity: 'actividad',
-  orders: 'órdenes',
+  portfolio: 'home',
+  report: 'report',
+  chart: 'chart',
+  buy: 'buy',
+  sell: 'sell',
+  search: 'search',
+  activity: 'activity',
+  orders: 'orders',
 };
 
 // Screens: connecting, error, portfolio, chart, buy, sell, search, order-result, activity, orders
@@ -441,7 +441,7 @@ export function App({ paperTrading = false }) {
       )}
 
       {screen === 'connecting' && (
-        <Loading message="Conectando a TWS..." />
+        <Loading message="Connecting to TWS..." />
       )}
 
       {screen === 'error' && (
@@ -622,7 +622,7 @@ export function App({ paperTrading = false }) {
 
       {orderLoading && (
         <Box marginTop={1} paddingX={1}>
-          <Loading message="Enviando orden..." />
+          <Loading message="Submitting order..." />
         </Box>
       )}
     </Box>

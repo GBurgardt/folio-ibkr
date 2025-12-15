@@ -21,9 +21,9 @@ const svgPath = path.join(PUBLIC_DIR, 'icon.svg');
 // Para iOS, creamos un HTML que carga el SVG como icono
 // iOS Safari acepta SVG para apple-touch-icon desde iOS 15+
 
-console.log('Los iconos SVG están listos en server/public/');
-console.log('Safari iOS 15+ soporta SVG como apple-touch-icon.');
-console.log('\nSi necesitás PNG, instalá sharp:');
+console.log('SVG icons are ready in server/public/');
+console.log('Safari iOS 15+ supports SVG as apple-touch-icon.');
+console.log('\nIf you need PNG, install sharp:');
 console.log('  npm install sharp');
 console.log('  node server/generate-icons.js --png');
 
@@ -44,9 +44,9 @@ if (process.argv.includes('--png')) {
       .png()
       .toFile(path.join(PUBLIC_DIR, 'icon-512.png'));
 
-    console.log('\n✓ Iconos PNG generados!');
+    console.log('\n✓ PNG icons generated!');
   } catch (err) {
-    console.error('\nNo se pudo generar PNG:', err.message);
-    console.log('Usando SVG como fallback.');
+    console.error('\nCould not generate PNG:', err.message);
+    console.log('Using SVG as fallback.');
   }
 }

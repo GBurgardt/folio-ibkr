@@ -22,7 +22,7 @@ export function Header({ netLiquidation, totalGain, gainPercent, accountId }) {
             {arrow} {formatMoney(Math.abs(totalGain), false)}  {formatPercent(gainPercent, true)}
           </Text>
           <Text color="gray" dimColor>
-            {accountId || 'Cuenta'}
+            {accountId || 'Account'}
           </Text>
         </Box>
       </Box>

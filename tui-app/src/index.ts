@@ -31,28 +31,28 @@ if (showHelp) {
   Folio TUI - Interactive Brokers Portfolio Manager
 
   Usage:
-    bun start              Conectar a cuenta REAL (puerto 7496)
-    bun start -- --paper   Conectar a cuenta PAPER (puerto 7497)
+    bun start              Connect to LIVE (port 7496)
+    bun start -- --paper   Connect to PAPER (port 7497)
 
-  Opciones:
-    --paper, -p    Usar paper trading (puerto 7497)
-    --debug, -d    Modo debug con logs detallados
-    --help, -h     Mostrar esta ayuda
+  Options:
+    --paper, -p    Use paper trading (port 7497)
+    --debug, -d    Debug logs
+    --help, -h     Show help
 
-  Navegación:
-    ↑↓         Navegar posiciones
-    Enter      Ver detalle de posición
-    b          Comprar
-    s          Vender (en detalle)
-    /          Buscar símbolo
-    r          Refrescar datos
-    Esc        Volver
-    q          Salir
+  Navigation:
+    ↑↓         Move selection
+    Enter      Open position details
+    b          Buy
+    s          Sell (in details)
+    /          Search symbol
+    r          Refresh
+    Esc        Back
+    q          Quit
 
-  Requisitos:
-    - TWS o IB Gateway abierto
-    - API habilitada en Settings > API
-    - Puerto 7496 (live) o 7497 (paper)
+  Requirements:
+    - TWS or IB Gateway running
+    - API enabled (Settings > API)
+    - Port 7496 (live) or 7497 (paper)
   `);
   process.exit(0);
 }
@@ -60,32 +60,32 @@ if (showHelp) {
 // Check if terminal supports interactive mode
 if (!process.stdin.isTTY) {
   console.log(`
-  Este CLI necesita ejecutarse en una terminal interactiva.
+  This CLI must run in an interactive terminal (TTY).
 
-  Ejecutá directamente:
+  Run:
     bun run src/index.ts
 
-  O:
+  Or:
     bun start
   `);
   process.exit(1);
 }
 
-console.log('[FOLIO-TUI] Iniciando aplicación...');
-console.log('[FOLIO-TUI] Paper trading:', paperTrading ? 'SÍ (puerto 7497)' : 'NO (puerto 7496)');
+console.log('[FOLIO-TUI] Starting app...');
+console.log('[FOLIO-TUI] Paper trading:', paperTrading ? 'YES (port 7497)' : 'NO (port 7496)');
 
 async function main() {
   // Import createCliRenderer directly to test
   const { createCliRenderer, TextRenderable, BoxRenderable, SelectRenderable, SelectRenderableEvents } = await import("@opentui/core");
 
-  console.log('[FOLIO-TUI] Creando renderer primero...');
+  console.log('[FOLIO-TUI] Creating renderer...');
 
   const renderer = await createCliRenderer({
     exitOnCtrlC: false,
     targetFps: 60,
   });
 
-  console.log('[FOLIO-TUI] Renderer creado!');
+  console.log('[FOLIO-TUI] Renderer created!');
   console.log('[FOLIO-TUI] Screen:', renderer.width, 'x', renderer.height);
 
   // Simple UI
@@ -103,7 +103,7 @@ async function main() {
 
   const title = new TextRenderable(renderer, {
     id: 'title',
-    content: '  FOLIO TUI - Conectando a TWS...',
+    content: '  FOLIO TUI - Connecting to TWS...',
     fg: '#ffffff',
     position: 'absolute',
     left: 2,
@@ -112,7 +112,7 @@ async function main() {
 
   const status = new TextRenderable(renderer, {
     id: 'status',
-    content: ' [q] Salir',
+    content: ' [q] Quit',
     fg: '#888888',
     position: 'absolute',
     left: 0,
@@ -123,17 +123,17 @@ async function main() {
   renderer.root.add(title);
   renderer.root.add(status);
 
-  console.log('[FOLIO-TUI] UI básica lista');
+  console.log('[FOLIO-TUI] Basic UI ready');
 
   // Now create app
-  console.log('[FOLIO-TUI] Creando App...');
+  console.log('[FOLIO-TUI] Creating App...');
   const app = new App({ paperTrading });
 
   // Update UI on state change
   app.on('stateChange', () => {
     const state = app.state;
     if (state.connectionStatus === 'connected') {
-      title.content = `  FOLIO TUI - Conectado | ${state.accountId || ''}`;
+      title.content = `  FOLIO TUI - Connected | ${state.accountId || ''}`;
       title.fg = '#00ff00';
     } else if (state.connectionStatus === 'error') {
       title.content = `  ERROR: ${state.connectionError}`;
@@ -157,7 +157,7 @@ async function main() {
     }
   });
 
-  console.log('[FOLIO-TUI] Conectando a IB...');
+  console.log('[FOLIO-TUI] Connecting to IB...');
 
   // Connect after a small delay
   setTimeout(() => {

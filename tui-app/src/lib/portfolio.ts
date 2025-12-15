@@ -66,7 +66,7 @@ export class PortfolioManager {
     return new Promise((resolve, reject) => {
       const client = this.ibConnection.getClient();
       if (!client || !this.ibConnection.isConnected()) {
-        reject(new Error('No conectado a IB'));
+        reject(new Error('Not connected to IB'));
         return;
       }
 
@@ -85,7 +85,7 @@ export class PortfolioManager {
       const checkComplete = () => {
         if (accountSummaryDone && positionsDone) {
           cleanup();
-          log(`Fetch completo: ${positions.length} posiciones, NLV: $${accountData.netLiquidation.toFixed(2)}`);
+          log(`Fetch complete: ${positions.length} positions, NLV: $${accountData.netLiquidation.toFixed(2)}`);
           resolve({ positions, accountData });
         }
       };
@@ -93,7 +93,7 @@ export class PortfolioManager {
       // Timeout
       const timeout = setTimeout(() => {
         cleanup();
-        reject(new Error('Timeout obteniendo portfolio'));
+        reject(new Error('Timeout fetching portfolio'));
       }, 15000);
 
       // Account Summary
@@ -212,7 +212,7 @@ export class PortfolioManager {
     return new Promise((resolve, reject) => {
       const client = this.ibConnection.getClient();
       if (!client || !this.ibConnection.isConnected()) {
-        reject(new Error('No conectado a IB'));
+        reject(new Error('Not connected to IB'));
         return;
       }
 
@@ -228,7 +228,7 @@ export class PortfolioManager {
             this.priceCache.set(symbol, { price: priceData, timestamp: Date.now() });
             resolve(priceData);
           } else {
-            reject(new Error(`Timeout obteniendo precio de ${symbol}`));
+            reject(new Error(`Timeout fetching price for ${symbol}`));
           }
         }
       }, 5000);

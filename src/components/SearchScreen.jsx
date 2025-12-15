@@ -69,11 +69,11 @@ export function SearchScreen({
         flexDirection="column"
       >
         <Box>
-          <Text color="cyan">Símbolo: </Text>
+          <Text color="cyan">Symbol: </Text>
           <TextInput
             value={query}
             onChange={setQuery}
-            placeholder="Buscar..."
+            placeholder="Search..."
           />
         </Box>
       </Box>
@@ -88,21 +88,21 @@ export function SearchScreen({
       >
         {loading && (
           <Box paddingX={2}>
-            <Text color="gray">buscando...</Text>
+            <Text color="gray">searching...</Text>
           </Box>
         )}
 
         {!loading && results.length === 0 && isSearching && (
           <Box paddingX={2}>
             <Text color="gray">
-              Sin resultados. Enter para buscar "{query.toUpperCase()}"
+              No results. Press Enter to search "{query.toUpperCase()}"
             </Text>
           </Box>
         )}
 
         {!loading && results.length === 0 && !isSearching && (
           <Box paddingX={2}>
-            <Text color="gray">Escribí para buscar (mínimo 2 letras)</Text>
+            <Text color="gray">Type to search (min 2 chars)</Text>
           </Box>
         )}
 
@@ -110,7 +110,7 @@ export function SearchScreen({
           <>
             {!isSearching && (
               <Box paddingX={2} marginBottom={1}>
-                <Text color="gray" dimColor>Sugerencias:</Text>
+                <Text color="gray" dimColor>Suggestions:</Text>
               </Box>
             )}
             {results.map((item, index) => (
@@ -127,10 +127,10 @@ export function SearchScreen({
                     <Text color="gray"> {item.name.slice(0, 35)}</Text>
                   )}
                   {item.source === 'portfolio' && (
-                    <Text color="green" dimColor> (tuyo)</Text>
+                    <Text color="green" dimColor> (yours)</Text>
                   )}
                   {item.source === 'recent' && (
-                    <Text color="yellow" dimColor> (reciente)</Text>
+                    <Text color="yellow" dimColor> (recent)</Text>
                   )}
                 </Text>
               </Box>
@@ -143,11 +143,11 @@ export function SearchScreen({
       <Box marginTop={1} gap={2}>
         <Box>
           <Text color="gray">↑↓ </Text>
-          <Text>navegar</Text>
+          <Text>navigate</Text>
         </Box>
         <Box>
           <Text color="gray">Enter </Text>
-          <Text>ver gráfico</Text>
+          <Text>view chart</Text>
         </Box>
       </Box>
     </Box>

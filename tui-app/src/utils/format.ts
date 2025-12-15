@@ -69,37 +69,37 @@ export function formatRelativeTime(timestamp: number | null | undefined): string
   const diffYears = Math.floor(diffDays / 365);
 
   if (diffSeconds < 60) {
-    return 'ahora';
+    return 'now';
   }
 
   if (diffMinutes < 60) {
-    return `hace ${diffMinutes} min`;
+    return `${diffMinutes}m ago`;
   }
 
   if (diffHours < 24) {
-    return diffHours === 1 ? 'hace 1 hora' : `hace ${diffHours} horas`;
+    return diffHours === 1 ? '1h ago' : `${diffHours}h ago`;
   }
 
   if (diffDays < 7) {
-    const days = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const dayName = days[date.getDay()];
     const hours = date.getHours().toString().padStart(2, '0');
     const minutes = date.getMinutes().toString().padStart(2, '0');
 
     if (diffDays === 1) {
-      return `ayer ${hours}:${minutes}`;
+      return `yesterday ${hours}:${minutes}`;
     }
 
-    return `el ${dayName}`;
+    return dayName;
   }
 
   if (diffWeeks < 4) {
-    return diffWeeks === 1 ? 'hace 1 semana' : `hace ${diffWeeks} semanas`;
+    return diffWeeks === 1 ? '1w ago' : `${diffWeeks}w ago`;
   }
 
   if (diffMonths < 12) {
-    return diffMonths === 1 ? 'hace 1 mes' : `hace ${diffMonths} meses`;
+    return diffMonths === 1 ? '1mo ago' : `${diffMonths}mo ago`;
   }
 
-  return diffYears === 1 ? 'hace 1 año' : `hace ${diffYears} años`;
+  return diffYears === 1 ? '1y ago' : `${diffYears}y ago`;
 }

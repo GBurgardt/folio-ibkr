@@ -30,7 +30,7 @@ export function PositionRow({ position, selected = false, currentPrice = null })
         {padRight(symbol, 6)}
       </Text>
       <Text backgroundColor={bgColor} color="gray">
-        {padLeft(String(quantity), 5)} acc
+        {padLeft(String(quantity), 5)} sh
       </Text>
       <Text backgroundColor={bgColor} color={textColor}>
         {'   '}

@@ -8,13 +8,13 @@ const debug = (...args) => {
   }
 };
 
-// Períodos disponibles
+// Available periods
 export const PERIODS = {
-  '1W': { duration: '1 W', barSize: '1 hour', label: '1 semana' },
-  '1M': { duration: '1 M', barSize: '1 day', label: '1 mes' },
-  '3M': { duration: '3 M', barSize: '1 day', label: '3 meses' },
-  '6M': { duration: '6 M', barSize: '1 day', label: '6 meses' },
-  '1Y': { duration: '1 Y', barSize: '1 day', label: '1 año' },
+  '1W': { duration: '1 W', barSize: '1 hour', label: '1w' },
+  '1M': { duration: '1 M', barSize: '1 day', label: '1m' },
+  '3M': { duration: '3 M', barSize: '1 day', label: '3m' },
+  '6M': { duration: '6 M', barSize: '1 day', label: '6m' },
+  '1Y': { duration: '1 Y', barSize: '1 day', label: '1y' },
 };
 
 export const PERIOD_KEYS = ['1W', '1M', '3M', '6M', '1Y'];
@@ -37,7 +37,7 @@ export function useHistoricalData(getClient, isConnected) {
 
     if (!client || !isConnected) {
       debug('Not connected, rejecting');
-      return Promise.reject(new Error('No conectado'));
+      return Promise.reject(new Error('Not connected'));
     }
 
     // Check cache (5 min TTL)
@@ -72,8 +72,8 @@ export function useHistoricalData(getClient, isConnected) {
           debug(`Timeout for ${cacheKey}`);
           cleanup();
           setLoading(prev => ({ ...prev, [cacheKey]: false }));
-          setError(prev => ({ ...prev, [cacheKey]: 'Timeout obteniendo histórico' }));
-          reject(new Error('Timeout obteniendo histórico'));
+          setError(prev => ({ ...prev, [cacheKey]: 'Timeout fetching history' }));
+          reject(new Error('Timeout fetching history'));
         }
       }, 15000);
 
@@ -148,8 +148,8 @@ export function useHistoricalData(getClient, isConnected) {
           resolved = true;
           cleanup();
           setLoading(prev => ({ ...prev, [cacheKey]: false }));
-          setError(prev => ({ ...prev, [cacheKey]: err?.message || 'Error desconocido' }));
-          reject(new Error(err?.message || 'Error obteniendo histórico'));
+          setError(prev => ({ ...prev, [cacheKey]: err?.message || 'Unknown error' }));
+          reject(new Error(err?.message || 'Error fetching history'));
         }
       };
 

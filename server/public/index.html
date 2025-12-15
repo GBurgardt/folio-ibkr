@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -385,7 +385,7 @@
   <div id="app">
     <div class="loading">
       <div class="spinner"></div>
-      <div class="loading-text">Conectando...</div>
+      <div class="loading-text">Connecting...</div>
     </div>
   </div>
 
@@ -399,14 +399,14 @@
   <div class="modal-overlay" id="modal">
     <div class="modal">
       <div class="modal-header">
-        <div class="modal-title" id="modal-title">Comprar AAPL</div>
-        <div class="modal-subtitle" id="modal-subtitle">Cash disponible: $10,000</div>
+        <div class="modal-title" id="modal-title">Buy AAPL</div>
+        <div class="modal-subtitle" id="modal-subtitle">Available cash: $10,000</div>
       </div>
 
       <div class="amount-buttons" id="amount-buttons"></div>
 
-      <button class="confirm-btn" id="confirm-btn" disabled>Seleccionar monto</button>
-      <button class="cancel-btn" id="cancel-btn">Cancelar</button>
+      <button class="confirm-btn" id="confirm-btn" disabled>Select amount</button>
+      <button class="cancel-btn" id="cancel-btn">Cancel</button>
     </div>
   </div>
 
@@ -443,18 +443,18 @@
       const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
       const wsUrl = `${protocol}//${location.host}`;
 
-      console.log('[WS] Conectando a', wsUrl);
+      console.log('[WS] Connecting to', wsUrl);
 
       try {
         ws = new WebSocket(wsUrl);
       } catch (err) {
-        console.error('[WS] Error creando WebSocket:', err);
+        console.error('[WS] Error creating WebSocket:', err);
         scheduleReconnect();
         return;
       }
 
       ws.onopen = () => {
-        console.log('[WS] Conectado');
+        console.log('[WS] Connected');
         state.connected = true;
         render();
       };
@@ -462,15 +462,15 @@
       ws.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data);
-          console.log('[WS] Mensaje:', message.type);
+          console.log('[WS] Message:', message.type);
           handleMessage(message);
         } catch (err) {
-          console.error('[WS] Error parseando:', err);
+          console.error('[WS] Error parsing:', err);
         }
       };
 
       ws.onclose = () => {
-        console.log('[WS] Desconectado');
+        console.log('[WS] Disconnected');
         state.connected = false;
         render();
         scheduleReconnect();
@@ -483,7 +483,7 @@
 
     function scheduleReconnect() {
       if (!reconnectTimeout) {
-        console.log('[WS] Reconectando en 3s...');
+        console.log('[WS] Reconnecting in 3s...');
         reconnectTimeout = setTimeout(connect, 3000);
       }
     }
@@ -510,12 +510,12 @@
 
         case 'ORDER_OK':
           hideModal();
-          showToast('success', `${message.action === 'BUY' ? 'Compra' : 'Venta'} ejecutada`);
+          showToast('success', `${message.action === 'BUY' ? 'Buy' : 'Sell'} submitted`);
           break;
 
         case 'ORDER_FAIL':
           hideModal();
-          showToast('error', message.message || 'Error en la orden');
+          showToast('error', message.message || 'Order error');
           break;
       }
     }
@@ -546,7 +546,7 @@
         app.innerHTML = `
           <div class="loading">
             <div class="spinner"></div>
-            <div class="loading-text">Conectando...</div>
+            <div class="loading-text">Connecting...</div>
           </div>
         `;
         return;
@@ -589,7 +589,7 @@
               <div class="position-info">
                 <div class="symbol">${item.symbol}</div>
                 <div class="value">
-                  ${price > 0 ? '$' + price.toFixed(2) : 'Sin precio'}
+                  ${price > 0 ? '$' + price.toFixed(2) : 'No price'}
                   <span class="change ${changeClass}">${formatPercent(item.change)}</span>
                 </div>
               </div>
@@ -602,7 +602,7 @@
       }
 
       if (!positionsHTML) {
-        positionsHTML = '<div class="empty">Sin posiciones</div>';
+        positionsHTML = '<div class="empty">No positions</div>';
       }
 
       app.innerHTML = `
@@ -633,10 +633,10 @@
       const buttons = document.getElementById('amount-buttons');
       const confirmBtn = document.getElementById('confirm-btn');
 
-      title.textContent = `Comprar ${symbol}`;
-      subtitle.textContent = `Cash disponible: ${formatMoney(state.cash)}`;
+      title.textContent = `Buy ${symbol}`;
+      subtitle.textContent = `Available cash: ${formatMoney(state.cash)}`;
 
-      confirmBtn.textContent = 'Seleccionar monto';
+      confirmBtn.textContent = 'Select amount';
       confirmBtn.disabled = true;
       confirmBtn.className = 'confirm-btn buy';
 
@@ -654,7 +654,7 @@
                   ${disabled ? 'disabled' : ''}
                   onclick="selectAmount(this, ${amount}, ${shares})">
             ${labels[i]}
-            <small>${shares} acciones</small>
+            <small>${shares} shares</small>
           </button>
         `;
       }).join('');
@@ -672,16 +672,16 @@
       const buttons = document.getElementById('amount-buttons');
       const confirmBtn = document.getElementById('confirm-btn');
 
-      title.textContent = `Vender ${symbol}`;
-      subtitle.textContent = `Tenés ${quantity} acciones`;
+      title.textContent = `Sell ${symbol}`;
+      subtitle.textContent = `You have ${quantity} shares`;
 
-      confirmBtn.textContent = 'Seleccionar cantidad';
+      confirmBtn.textContent = 'Select quantity';
       confirmBtn.disabled = true;
       confirmBtn.className = 'confirm-btn sell';
 
       // Percentage buttons
       const percents = [25, 50, 75, 100];
-      const labels = ['25%', '50%', '75%', 'TODO'];
+      const labels = ['25%', '50%', '75%', 'ALL'];
 
       buttons.innerHTML = percents.map((pct, i) => {
         const shares = Math.floor(quantity * pct / 100);
@@ -691,7 +691,7 @@
                   data-shares="${shares}"
                   onclick="selectPercent(this, ${pct}, ${shares})">
             ${labels[i]}
-            <small>${shares} acciones</small>
+            <small>${shares} shares</small>
           </button>
         `;
       }).join('');
@@ -707,7 +707,7 @@
       currentTrade.shares = shares;
 
       const confirmBtn = document.getElementById('confirm-btn');
-      confirmBtn.textContent = `Comprar ${shares} acciones`;
+      confirmBtn.textContent = `Buy ${shares} shares`;
       confirmBtn.disabled = false;
     };
 
@@ -719,7 +719,7 @@
       currentTrade.shares = shares;
 
       const confirmBtn = document.getElementById('confirm-btn');
-      confirmBtn.textContent = `Vender ${shares} acciones`;
+      confirmBtn.textContent = `Sell ${shares} shares`;
       confirmBtn.disabled = false;
     };
 
@@ -736,7 +736,7 @@
 
       const confirmBtn = document.getElementById('confirm-btn');
       confirmBtn.disabled = true;
-      confirmBtn.textContent = 'Enviando...';
+      confirmBtn.textContent = 'Sending...';
 
       if (currentTrade.action === 'BUY') {
         send({

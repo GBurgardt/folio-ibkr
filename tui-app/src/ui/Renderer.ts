@@ -124,7 +124,7 @@ export class UIRenderer {
       id: 'positions',
       width: width - 4,
       height: height - 8,
-      options: [{ name: 'Conectando a TWS...', description: '' }],
+      options: [{ name: 'Connecting to TWS...', description: '' }],
       position: 'absolute',
       left: 2,
       top: 5,
@@ -135,7 +135,7 @@ export class UIRenderer {
     // Status bar
     this.statusBar = new TextRenderable(this.renderer, {
       id: 'status',
-      content: ' [↑↓] Navegar  [Enter] Ver  [b] Comprar  [/] Buscar  [q] Salir',
+      content: ' [↑↓] Navigate  [Enter] Open  [b] Buy  [/] Search  [q] Quit',
       fg: COLORS.muted,
       position: 'absolute',
       left: 0,
@@ -186,9 +186,9 @@ export class UIRenderer {
     // Update header
     if (this.headerValue) {
       if (state.screen === 'connecting') {
-        this.headerValue.content = '  Conectando a TWS...';
+        this.headerValue.content = '  Connecting to TWS...';
       } else if (state.screen === 'error') {
-        this.headerValue.content = `  ERROR: ${state.connectionError || 'Desconocido'}`;
+        this.headerValue.content = `  ERROR: ${state.connectionError || 'Unknown'}`;
         this.headerValue.fg = COLORS.danger;
       } else {
         this.headerValue.content = `  Total Portfolio: ${formatMoney(state.accountData.netLiquidation)}`;
@@ -204,7 +204,7 @@ export class UIRenderer {
         this.headerGain.content = `  ${arrow} ${formatMoney(Math.abs(computed.totalGain), false)}  ${formatPercent(computed.gainPercent, true)}  |  ${state.accountId || ''}`;
         this.headerGain.fg = isPositive ? COLORS.success : COLORS.danger;
       } else if (state.screen === 'error') {
-        this.headerGain.content = '  [r] Reintentar  [q] Salir';
+        this.headerGain.content = '  [r] Retry  [q] Quit';
         this.headerGain.fg = COLORS.muted;
       } else {
         this.headerGain.content = '';
@@ -215,13 +215,13 @@ export class UIRenderer {
     if (this.positionsList) {
       if (state.screen === 'connecting') {
         this.positionsList.options = [
-          { name: 'Conectando a TWS...', description: 'Esperando conexión' },
+          { name: 'Connecting to TWS...', description: 'Waiting for connection' },
         ];
       } else if (state.screen === 'error') {
         this.positionsList.options = [
-          { name: 'Error de conexión', description: state.connectionError || '' },
-          { name: '[r] Reintentar', description: '' },
-          { name: '[q] Salir', description: '' },
+          { name: 'Connection error', description: state.connectionError || '' },
+          { name: '[r] Retry', description: '' },
+          { name: '[q] Quit', description: '' },
         ];
       } else if (state.screen === 'portfolio') {
         const options = state.positions.map(pos => {
@@ -231,7 +231,7 @@ export class UIRenderer {
           const gainPct = pos.avgCost > 0 ? (gain / (pos.quantity * pos.avgCost)) * 100 : 0;
 
           return {
-            name: `${padRight(pos.symbol, 6)} ${padLeft(String(pos.quantity), 5)} acc   ${padLeft(formatMoney(value), 12)}`,
+            name: `${padRight(pos.symbol, 6)} ${padLeft(String(pos.quantity), 5)} sh    ${padLeft(formatMoney(value), 12)}`,
             description: formatPercent(gainPct, true),
           };
         });
@@ -243,16 +243,16 @@ export class UIRenderer {
         });
 
         if (options.length === 1) {
-          options.unshift({ name: 'No hay posiciones', description: '' });
+          options.unshift({ name: 'No positions', description: '' });
         }
 
         this.positionsList.options = options;
       } else if (state.screen === 'chart') {
         this.positionsList.options = [
-          { name: `Gráfico: ${state.chartSymbol}`, description: '' },
-          { name: '[Esc] Volver', description: '' },
-          { name: '[b] Comprar', description: '' },
-          { name: '[s] Vender', description: '' },
+          { name: `Chart: ${state.chartSymbol}`, description: '' },
+          { name: '[Esc] Back', description: '' },
+          { name: '[b] Buy', description: '' },
+          { name: '[s] Sell', description: '' },
         ];
       }
     }
@@ -261,19 +261,19 @@ export class UIRenderer {
     if (this.messageText) {
       switch (state.connectionStatus) {
         case 'connected':
-          this.messageText.content = ` TWS: Conectado`;
+          this.messageText.content = ` TWS: Connected`;
           this.messageText.fg = COLORS.success;
           break;
         case 'connecting':
-          this.messageText.content = ' TWS: Conectando...';
+          this.messageText.content = ' TWS: Connecting...';
           this.messageText.fg = COLORS.warning;
           break;
         case 'error':
-          this.messageText.content = ' TWS: Error de conexión';
+          this.messageText.content = ' TWS: Connection error';
           this.messageText.fg = COLORS.danger;
           break;
         default:
-          this.messageText.content = ' TWS: Desconectado';
+          this.messageText.content = ' TWS: Disconnected';
           this.messageText.fg = COLORS.muted;
       }
     }

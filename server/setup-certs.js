@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * Genera certificados SSL self-signed para el servidor móvil
+ * Generate self-signed SSL certificates for the mobile server
  *
- * Uso: node server/setup-certs.js
+ * Usage: node server/setup-certs.js
  */
 
 import { execSync } from 'child_process';
@@ -23,12 +23,12 @@ const certPath = path.join(CERTS_DIR, 'cert.pem');
 
 // Verificar si ya existen
 if (fs.existsSync(keyPath) && fs.existsSync(certPath)) {
-  console.log('Los certificados ya existen en server/certs/');
-  console.log('Para regenerarlos, borrá los archivos existentes primero.');
+  console.log('Certificates already exist in server/certs/');
+  console.log('To regenerate them, delete the existing files first.');
   process.exit(0);
 }
 
-console.log('Generando certificados SSL...\n');
+console.log('Generating SSL certificates...\n');
 
 try {
   // Generar certificado self-signed válido por 365 días
@@ -41,19 +41,19 @@ try {
     -addext "subjectAltName=DNS:localhost,DNS:folio.local,IP:127.0.0.1,IP:192.168.1.1,IP:192.168.0.1,IP:10.0.0.1"
   `, { stdio: 'inherit' });
 
-  console.log('\n✓ Certificados generados exitosamente!\n');
-  console.log('Archivos:');
+  console.log('\n✓ Certificates generated!\n');
+  console.log('Files:');
   console.log(`  - ${keyPath}`);
   console.log(`  - ${certPath}`);
   console.log('\n');
-  console.log('NOTA: Al abrir la app en tu iPhone por primera vez,');
-  console.log('Safari mostrará una advertencia de seguridad.');
-  console.log('Tocá "Mostrar detalles" → "Visitar sitio" para continuar.');
+  console.log('Note: the first time you open the app on iPhone,');
+  console.log('Safari will show a security warning.');
+  console.log('Tap "Show Details" → "Visit Website" to continue.');
   console.log('\n');
 
 } catch (err) {
-  console.error('Error generando certificados:', err.message);
-  console.error('\nAsegurate de tener OpenSSL instalado.');
-  console.error('En macOS viene preinstalado.');
+  console.error('Error generating certificates:', err.message);
+  console.error('\nMake sure OpenSSL is installed.');
+  console.error('On macOS it is usually preinstalled.');
   process.exit(1);
 }

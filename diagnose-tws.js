@@ -69,16 +69,16 @@ if (workingHost) {
 }
 
 if (!tcpOk) {
-  console.log('\n❌ DIAGNÓSTICO: TWS no está aceptando conexiones TCP');
-  console.log('\nVerificá en TWS:');
+  console.log('\n❌ DIAGNOSIS: TWS is not accepting TCP connections');
+  console.log('\nCheck in TWS:');
   console.log('  1. Edit → Global Configuration → API → Settings');
-  console.log('  2. ✅ "Enable ActiveX and Socket Clients" = HABILITADO');
+  console.log('  2. ✅ "Enable ActiveX and Socket Clients" = ENABLED');
   console.log(`  3. ✅ Socket port = ${port}`);
-  console.log('  4. ✅ "Allow connections from localhost only" = SI');
-  console.log('\nTambién verificá:');
-  console.log('  - TWS está abierto y logueado?');
-  console.log('  - Hay un firewall bloqueando?');
-  console.log('  - Estás usando el puerto correcto? (7496=live, 7497=paper)');
+  console.log('  4. ✅ "Allow connections from localhost only" = YES');
+  console.log('\nAlso check:');
+  console.log('  - Is TWS open and logged in?');
+  console.log('  - Is a firewall blocking the port?');
+  console.log('  - Are you using the right port? (7496=live, 7497=paper)');
   process.exit(1);
 }
 
@@ -92,7 +92,7 @@ const ibTest = new Promise((resolve) => {
   const timeout = setTimeout(() => {
     if (!resolved) {
       resolved = true;
-      console.log('❌ IB API: Handshake timeout (TWS no respondió al API handshake)');
+      console.log('❌ IB API: Handshake timeout (TWS did not respond to the API handshake)');
       try { client.disconnect(); } catch (e) {}
       resolve(false);
     }
@@ -108,7 +108,7 @@ const ibTest = new Promise((resolve) => {
     if (!resolved && (msg.includes('ECONNREFUSED') || msg.includes('ETIMEDOUT'))) {
       resolved = true;
       clearTimeout(timeout);
-      console.log('❌ IB API Error:', msg);
+      console.log('❌ IB API error:', msg);
       resolve(false);
     }
   });
@@ -146,27 +146,27 @@ const ibTest = new Promise((resolve) => {
 const ibOk = await ibTest;
 
 // Step 3: Summary
-console.log('\n[3/3] Diagnóstico completo');
+console.log('\n[3/3] Diagnostic summary');
 console.log('='.repeat(50));
 
 if (ibOk) {
-  console.log('✅ TODO OK! La conexión a TWS funciona correctamente.');
-  console.log('\nPodés correr la app con:');
-  console.log('  npm start           (cuenta real)');
-  console.log('  npm start -- --paper    (paper trading)');
+  console.log('✅ All good! TWS connection works.');
+  console.log('\nRun the app with:');
+  console.log('  npm start              (live)');
+  console.log('  npm start -- --paper   (paper)');
 } else if (tcpOk) {
-  console.log('⚠️  TCP OK pero IB API handshake falló');
-  console.log('\nPosibles causas:');
-  console.log('  1. "Enable ActiveX and Socket Clients" está deshabilitado');
-  console.log('  2. Otra app está conectada con el mismo clientId');
-  console.log('  3. TWS requiere confirmar la conexión manualmente');
-  console.log('\nPasos:');
-  console.log('  1. En TWS: Edit → Global Configuration → API → Settings');
-  console.log('  2. Habilitá "Enable ActiveX and Socket Clients"');
-  console.log('  3. Deshabilitá "Read-Only API" si querés hacer trades');
-  console.log('  4. Revisá Help → Data Connections para ver conexiones activas');
+  console.log('⚠️  TCP OK but IB API handshake failed');
+  console.log('\nPossible causes:');
+  console.log('  1. "Enable ActiveX and Socket Clients" is disabled');
+  console.log('  2. Another app is connected with the same clientId');
+  console.log('  3. TWS requires manual approval for API connections');
+  console.log('\nSteps:');
+  console.log('  1. In TWS: Edit → Global Configuration → API → Settings');
+  console.log('  2. Enable "Enable ActiveX and Socket Clients"');
+  console.log('  3. Disable "Read-Only API" if you want to place orders');
+  console.log('  4. Check Help → Data Connections for active sessions');
 } else {
-  console.log('❌ No hay conectividad a TWS');
+  console.log('❌ No connectivity to TWS');
 }
 
 console.log('\n');

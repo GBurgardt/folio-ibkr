@@ -45,8 +45,8 @@ const parseIBDate = (dateStr) => {
 const formatDateForAxis = (date, period) => {
   if (!date) return '';
 
-  const days = ['Dom', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'];
-  const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
   switch (period) {
     case '1W':
@@ -310,7 +310,7 @@ export function ChartScreen({
       <Box flexDirection="column" padding={1}>
         <Box justifyContent="space-between">
           <Text bold color="white">{symbol}</Text>
-          <Text color="gray">cargando...</Text>
+          <Text color="gray">loading...</Text>
         </Box>
       </Box>
     );
@@ -334,7 +334,7 @@ export function ChartScreen({
       <Box flexDirection="column" padding={1}>
         <Text bold color="white">{symbol}</Text>
         <Box marginTop={1}>
-          <Text color="gray">Sin datos</Text>
+          <Text color="gray">No data</Text>
         </Box>
       </Box>
     );
@@ -346,7 +346,7 @@ export function ChartScreen({
       <Box flexDirection="column" padding={1}>
         <Text bold color="white">{symbol}</Text>
         <Box marginTop={1}>
-          <Text color="gray">Sin datos históricos</Text>
+          <Text color="gray">No historical data</Text>
         </Box>
       </Box>
     );
@@ -403,13 +403,13 @@ export function ChartScreen({
       <Box justifyContent="space-between" marginBottom={0}>
         {owned ? (
           <Box>
-            <Text color="gray">compra {formatMoney(avgCost)} × {quantity} → </Text>
+            <Text color="gray">buy {formatMoney(avgCost)} × {quantity} → </Text>
             <Text color={displayColor} bold>{displaySign}{formatMoney(totalGain)}</Text>
             <Text color="gray"> ({formatPercent(Math.abs(totalGainPercent))})</Text>
           </Box>
         ) : (
           <Text color="gray">
-            rango: {formatMoney(chartData.min)} — {formatMoney(chartData.max)}
+            range: {formatMoney(chartData.min)} — {formatMoney(chartData.max)}
           </Text>
         )}
       </Box>
@@ -425,14 +425,14 @@ export function ChartScreen({
 
       {/* ═══ FOOTER: Actions ═══ */}
       <Box marginTop={1} justifyContent="space-between">
-        <Text color="gray">↑↓ período</Text>
+        <Text color="gray">↑↓ period</Text>
         <Box>
           <Text color="gray">b </Text>
-          <Text color="white">comprar</Text>
+          <Text color="white">buy</Text>
           {owned && (
             <>
               <Text color="gray">   s </Text>
-              <Text color="white">vender</Text>
+              <Text color="white">sell</Text>
             </>
           )}
         </Box>

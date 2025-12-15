@@ -90,7 +90,7 @@ export function useExecutions(getClient, isConnected) {
       if (data?.id === EXECUTIONS_REQ_ID || data?.id === -1) {
         debug('Error fetching executions:', err?.message, 'code:', code);
         cleanup();
-        setError(err?.message || 'Error obteniendo actividad');
+        setError(err?.message || 'Error fetching activity');
         setLoading(false);
       }
     };

@@ -3,7 +3,7 @@ import { Box, Text } from 'ink';
 import Spinner from 'ink-spinner';
 import { humanizeWarning } from '../hooks/useTrade.js';
 
-export function Loading({ message = 'Cargando...' }) {
+export function Loading({ message = 'Loading...' }) {
   return (
     <Box flexDirection="column" padding={2} alignItems="center" justifyContent="center">
       <Box gap={2}>
@@ -26,19 +26,19 @@ export function ConnectionError({ error, onRetry }) {
         paddingX={2}
         paddingY={1}
       >
-        <Text bold color="red">No se pudo conectar</Text>
+        <Text bold color="red">Could not connect</Text>
         <Text color="gray" wrap="wrap">{error}</Text>
       </Box>
 
       <Box marginTop={2} flexDirection="column" paddingX={1}>
-        <Text color="gray">Para usar Folio necesitás:</Text>
-        <Text color="gray">  1. TWS o IB Gateway abierto</Text>
-        <Text color="gray">  2. API habilitada en Settings {'>'} API {'>'} Enable</Text>
-        <Text color="gray">  3. Puerto 7496 (live) o 7497 (paper)</Text>
+        <Text color="gray">To use Folio you need:</Text>
+        <Text color="gray">  1. TWS or IB Gateway running</Text>
+        <Text color="gray">  2. API enabled in Settings {'>'} API {'>'} Settings</Text>
+        <Text color="gray">  3. Port 7496 (live) or 7497 (paper)</Text>
       </Box>
 
       <Box marginTop={2} paddingX={1}>
-        <Text color="cyan">[r] Reintentar  [q] Salir</Text>
+        <Text color="cyan">[r] Retry  [q] Quit</Text>
       </Box>
     </Box>
   );
@@ -53,17 +53,17 @@ export function OrderResult({ result, onContinue }) {
   const warningText = humanizeWarning(result.warning);
 
   // Determine the main message
-  let statusMessage = 'Orden enviada';
+  let statusMessage = 'Order submitted';
   let statusColor = 'yellow';
 
   if (isRejected) {
-    statusMessage = '✗ Orden rechazada';
+    statusMessage = '✗ Order rejected';
     statusColor = 'red';
   } else if (isFilled) {
-    statusMessage = '✓ Orden ejecutada';
+    statusMessage = '✓ Order filled';
     statusColor = 'green';
   } else if (isSubmitted) {
-    statusMessage = '✓ Orden enviada';
+    statusMessage = '✓ Order submitted';
     statusColor = 'green';
   }
 
@@ -85,7 +85,7 @@ export function OrderResult({ result, onContinue }) {
 
         {(!result.filled || result.filled === 0) && isSubmitted && (
           <Box>
-            <Text color="gray">Orden #{result.orderId}</Text>
+            <Text color="gray">Order #{result.orderId}</Text>
           </Box>
         )}
       </Box>
@@ -107,7 +107,7 @@ export function OrderResult({ result, onContinue }) {
       {/* Continue action */}
       <Box marginTop={1}>
         <Text color="gray">Enter </Text>
-        <Text color="white">continuar</Text>
+        <Text color="white">continue</Text>
       </Box>
     </Box>
   );

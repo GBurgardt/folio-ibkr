@@ -1,14 +1,19 @@
 #!/usr/bin/env node
-require('dotenv').config();
-const path = require('path');
-const fs = require('fs');
-const inquirer = require('inquirer');
-const chalk = require('chalk');
+import 'dotenv/config';
+import path from 'path';
+import fs from 'fs';
+import { spawn } from 'child_process';
+import chalk from 'chalk';
+import inquirer from 'inquirer';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 async function listProjects() {
   const baseDir = path.resolve(__dirname, 'projects');
   if (!fs.existsSync(baseDir)) {
-    console.log(chalk.red('No existe la carpeta de proyectos'));
+    console.log(chalk.red('Projects folder not found'));
     process.exit(1);
   }
   const entries = fs.readdirSync(baseDir, { withFileTypes: true });
@@ -30,7 +35,7 @@ async function selectProject(projects) {
     {
       type: 'list',
       name: 'project',
-      message: 'Selecciona un proyecto para ejecutar:',
+      message: 'Select a project to run:',
       choices: projects,
     },
   ]);
@@ -40,12 +45,11 @@ async function selectProject(projects) {
 async function runProject(projectSlug) {
   const entry = path.resolve(__dirname, 'projects', projectSlug, 'index.js');
   if (!fs.existsSync(entry)) {
-    console.log(chalk.red(`No se encontró entrypoint: ${entry}`));
+    console.log(chalk.red(`Entrypoint not found: ${entry}`));
     process.exit(1);
   }
 
   // Ejecutar como subproceso
-  const { spawn } = require('child_process');
   const node = process.execPath;
   const child = spawn(node, [entry], {
     stdio: 'inherit',
@@ -59,12 +63,12 @@ async function runProject(projectSlug) {
 
 async function main() {
   console.clear();
-  console.log(chalk.blue.bold('\n🧭 Interactive Brokers CLI'));
+  console.log(chalk.blue.bold('\n🧭 Folio CLI'));
   console.log(chalk.gray('━'.repeat(60)));
 
   const projects = await listProjects();
   if (projects.length === 0) {
-    console.log(chalk.yellow('No hay proyectos disponibles en ./projects'));
+    console.log(chalk.yellow('No projects found in ./projects'));
     process.exit(0);
   }
 

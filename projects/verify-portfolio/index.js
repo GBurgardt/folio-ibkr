@@ -1,7 +1,7 @@
-require('dotenv').config();
-const ib = require('ib');
-const chalk = require('chalk');
-const ora = require('ora');
+import 'dotenv/config';
+import ib from 'ib';
+import chalk from 'chalk';
+import ora from 'ora';
 
 // Variables para verificación
 let portfolio = {
@@ -13,12 +13,12 @@ let portfolio = {
 let ibClient = null;
 
 console.clear();
-console.log(chalk.blue.bold('🔍 VERIFICADOR DE PORTFOLIO'));
+console.log(chalk.blue.bold('🔍 PORTFOLIO CHECKER'));
 console.log(chalk.gray('━'.repeat(50)));
-console.log(chalk.cyan('Verificando estado actual de tu cuenta en IB\n'));
+console.log(chalk.cyan('Checking current account state in IB\n'));
 
 async function verifyPortfolio() {
-  const spinner = ora('Conectando a Interactive Brokers...').start();
+  const spinner = ora('Connecting to Interactive Brokers...').start();
   
   return new Promise((resolve, reject) => {
     ibClient = new ib({
@@ -28,7 +28,7 @@ async function verifyPortfolio() {
     });
 
     let connectionTimeout = setTimeout(() => {
-      spinner.fail('Timeout de conexión');
+      spinner.fail('Connection timeout');
       reject(new Error('Timeout'));
     }, 10000);
 
@@ -44,9 +44,9 @@ async function verifyPortfolio() {
 
     ibClient.on('nextValidId', () => {
       clearTimeout(connectionTimeout);
-      spinner.succeed('✅ Conectado a IB');
+      spinner.succeed('✅ Connected to IB');
       
-      console.log(chalk.gray('📊 Solicitando datos del portfolio...'));
+      console.log(chalk.gray('📊 Requesting portfolio data...'));
       
       // Solicitar datos
       ibClient.reqAccountSummary(1, 'All', 'TotalCashValue,NetLiquidation');
@@ -65,11 +65,11 @@ async function verifyPortfolio() {
     ibClient.on('accountSummary', (reqId, account, tag, value, currency) => {
       if (tag === 'TotalCashValue' && currency === 'USD') {
         portfolio.cash = parseFloat(value);
-        console.log(chalk.green(`💰 Efectivo: $${portfolio.cash.toFixed(2)}`));
+        console.log(chalk.green(`💰 Cash: $${portfolio.cash.toFixed(2)}`));
       }
       if (tag === 'NetLiquidation' && currency === 'USD') {
         portfolio.totalValue = parseFloat(value);
-        console.log(chalk.green(`📊 Valor total: $${portfolio.totalValue.toFixed(2)}`));
+        console.log(chalk.green(`📊 Total value: $${portfolio.totalValue.toFixed(2)}`));
       }
     });
 
@@ -83,12 +83,12 @@ async function verifyPortfolio() {
           currentValue: pos * avgCost
         };
         portfolio.positions.push(position);
-        console.log(chalk.blue(`📈 ${contract.symbol}: ${pos} acciones @ $${avgCost.toFixed(2)}`));
+        console.log(chalk.blue(`📈 ${contract.symbol}: ${pos} shares @ $${avgCost.toFixed(2)}`));
       }
     });
 
     ibClient.on('positionEnd', () => {
-      console.log(chalk.cyan(`\n🏁 Total posiciones: ${portfolio.positions.length}`));
+      console.log(chalk.cyan(`\n🏁 Total positions: ${portfolio.positions.length}`));
     });
 
     ibClient.connect();
@@ -98,40 +98,40 @@ async function verifyPortfolio() {
 
 function showResults() {
   console.log(chalk.yellow('\n' + '═'.repeat(60)));
-  console.log(chalk.yellow.bold('📋 RESUMEN DEL PORTFOLIO'));
+  console.log(chalk.yellow.bold('📋 PORTFOLIO SUMMARY'));
   console.log(chalk.yellow('═'.repeat(60)));
   
-  console.log(chalk.white(`Última actualización: ${portfolio.lastUpdate.toLocaleTimeString()}`));
-  console.log(chalk.white(`Valor total: $${portfolio.totalValue.toFixed(2)}`));
-  console.log(chalk.white(`Efectivo: $${portfolio.cash.toFixed(2)}`));
-  console.log(chalk.white(`Capital invertido: $${(portfolio.totalValue - portfolio.cash).toFixed(2)}`));
+  console.log(chalk.white(`Last update: ${portfolio.lastUpdate.toLocaleTimeString()}`));
+  console.log(chalk.white(`Total value: $${portfolio.totalValue.toFixed(2)}`));
+  console.log(chalk.white(`Cash: $${portfolio.cash.toFixed(2)}`));
+  console.log(chalk.white(`Invested capital: $${(portfolio.totalValue - portfolio.cash).toFixed(2)}`));
   
-  console.log(chalk.cyan('\n📊 POSICIONES DETALLADAS:'));
+  console.log(chalk.cyan('\n📊 POSITIONS:'));
   if (portfolio.positions.length > 0) {
     portfolio.positions.forEach(pos => {
       const percentage = ((pos.currentValue / portfolio.totalValue) * 100).toFixed(1);
-      console.log(chalk.white(`• ${pos.symbol}: ${pos.shares} acciones @ $${pos.avgCost.toFixed(2)}`));
-      console.log(chalk.gray(`  Valor: $${pos.currentValue.toFixed(2)} (${percentage}% del portfolio)`));
+      console.log(chalk.white(`• ${pos.symbol}: ${pos.shares} shares @ $${pos.avgCost.toFixed(2)}`));
+      console.log(chalk.gray(`  Value: $${pos.currentValue.toFixed(2)} (${percentage}% of portfolio)`));
     });
   } else {
-    console.log(chalk.red('❌ No se detectaron posiciones'));
+    console.log(chalk.red('❌ No positions detected'));
   }
   
   // Verificar si hubo cambios desde la última ejecución
   const googPosition = portfolio.positions.find(p => p.symbol === 'GOOG' || p.symbol === 'GOOGL');
   if (googPosition) {
-    console.log(chalk.magenta('\n🔍 VERIFICACIÓN GOOGLE:'));
-    console.log(chalk.white(`Tienes ${googPosition.shares} acciones de ${googPosition.symbol}`));
+    console.log(chalk.magenta('\n🔍 GOOGLE CHECK:'));
+    console.log(chalk.white(`You have ${googPosition.shares} shares of ${googPosition.symbol}`));
     
     if (googPosition.shares === 44) {
-      console.log(chalk.green('✅ LA VENTA SE EJECUTÓ! (49 → 44 acciones)'));
+      console.log(chalk.green('✅ SELL FILLED (49 → 44 shares)'));
     } else if (googPosition.shares === 49) {
-      console.log(chalk.red('❌ La venta NO se ejecutó (sigues con 49 acciones)'));
+      console.log(chalk.red('❌ SELL NOT FILLED (still 49 shares)'));
     } else {
-      console.log(chalk.yellow(`⚠️  Cantidad inesperada: ${googPosition.shares} acciones`));
+      console.log(chalk.yellow(`⚠️  Unexpected quantity: ${googPosition.shares} shares`));
     }
   } else {
-    console.log(chalk.red('\n❌ No se encontraron acciones de Google'));
+    console.log(chalk.red('\n❌ No Google position found'));
   }
   
   console.log(chalk.yellow('\n' + '═'.repeat(60)));
@@ -141,16 +141,16 @@ async function main() {
   try {
     await verifyPortfolio();
   } catch (error) {
-    console.error(chalk.red('\n❌ Error verificando portfolio:'), error.message);
-    console.log(chalk.yellow('💡 Asegúrate de que TWS esté abierto y conectado'));
+    console.error(chalk.red('\n❌ Error checking portfolio:'), error.message);
+    console.log(chalk.yellow('💡 Make sure TWS is running and the API is enabled'));
   }
   
-  console.log(chalk.gray('\n✨ Verificación completada'));
+  console.log(chalk.gray('\n✨ Check completed'));
 }
 
 // Manejo de cierre
 process.on('SIGINT', () => {
-  console.log(chalk.yellow('\n👋 Cerrando verificador...'));
+  console.log(chalk.yellow('\n👋 Shutting down...'));
   if (ibClient) ibClient.disconnect();
   process.exit(0);
 });

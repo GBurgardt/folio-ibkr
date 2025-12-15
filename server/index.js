@@ -66,12 +66,12 @@ try {
     key: fs.readFileSync(path.join(__dirname, 'certs', 'key.pem')),
     cert: fs.readFileSync(path.join(__dirname, 'certs', 'cert.pem')),
   };
-  log('SERVER', 'Certificados SSL cargados');
+  log('SERVER', 'SSL certificates loaded');
 } catch (err) {
   console.error('\n╔════════════════════════════════════════════════════════════╗');
-  console.error('║  ERROR: No se encontraron certificados SSL                 ║');
+  console.error('║  ERROR: SSL certificates not found                         ║');
   console.error('║                                                            ║');
-  console.error('║  Ejecutá este comando para generarlos:                     ║');
+  console.error('║  Run this command to generate them:                        ║');
   console.error('║                                                            ║');
   console.error('║  npm run server:setup                                      ║');
   console.error('║                                                            ║');
@@ -99,24 +99,24 @@ function broadcast(message) {
 
 wss.on('connection', (ws, req) => {
   const ip = req.socket.remoteAddress;
-  log('WS', `Cliente conectado desde ${ip}`);
+  log('WS', `Client connected from ${ip}`);
   clients.add(ws);
 
-  // Enviar estado inicial
+  // Send initial state
   sendFullState(ws);
 
   ws.on('message', async (data) => {
     try {
       const message = JSON.parse(data.toString());
-      log('WS', `Mensaje recibido:`, message);
+      log('WS', `Message received:`, message);
       await handleClientMessage(ws, message);
     } catch (err) {
-      log('WS', `Error parseando mensaje:`, err.message);
+      log('WS', `Error parsing message:`, err.message);
     }
   });
 
   ws.on('close', () => {
-    log('WS', `Cliente desconectado`);
+    log('WS', `Client disconnected`);
     clients.delete(ws);
   });
 
@@ -135,8 +135,8 @@ let portfolioManager = null;
 let tradeExecutor = null;
 
 async function initializeIB() {
-  log('IB', 'Iniciando conexión a Interactive Brokers...');
-  log('IB', `Host: ${CONFIG.ibHost}, Puerto: ${CONFIG.ibPort}, ClientId: ${CONFIG.ibClientId}`);
+  log('IB', 'Initializing Interactive Brokers connection...');
+  log('IB', `Host: ${CONFIG.ibHost}, Port: ${CONFIG.ibPort}, ClientId: ${CONFIG.ibClientId}`);
 
   ibConnection = new IBConnection({
     host: CONFIG.ibHost,
@@ -146,7 +146,7 @@ async function initializeIB() {
 
   // Eventos de conexión
   ibConnection.on('connected', () => {
-    log('IB', 'Conectado a TWS');
+    log('IB', 'Connected to TWS');
     broadcast({ type: 'CONNECTION', status: 'connected' });
 
     // Iniciar managers
@@ -158,7 +158,7 @@ async function initializeIB() {
   });
 
   ibConnection.on('disconnected', () => {
-    log('IB', 'Desconectado de TWS');
+    log('IB', 'Disconnected from TWS');
     broadcast({ type: 'CONNECTION', status: 'disconnected' });
   });
 
@@ -170,7 +170,7 @@ async function initializeIB() {
   try {
     await ibConnection.connect();
   } catch (err) {
-    log('IB', 'Error conectando:', err.message);
+    log('IB', 'Connection error:', err.message);
   }
 }
 
@@ -192,7 +192,7 @@ async function refreshPortfolio() {
   if (!portfolioManager) return;
 
   try {
-    log('PORTFOLIO', 'Refrescando portfolio...');
+    log('PORTFOLIO', 'Refreshing portfolio...');
     const { positions, accountData } = await portfolioManager.fetch();
 
     // Cargar favoritos
@@ -213,7 +213,7 @@ async function refreshPortfolio() {
           change: price.changePercent || 0,
         });
       } catch (err) {
-        log('PORTFOLIO', `Error obteniendo precio de ${symbol}:`, err.message);
+        log('PORTFOLIO', `Error fetching price for ${symbol}:`, err.message);
         watchlist.push({ symbol, price: 0, change: 0 });
       }
     }
@@ -237,13 +237,13 @@ async function refreshPortfolio() {
       watchlist,
     };
 
-    log('PORTFOLIO', `Portfolio actualizado: $${currentState.total.toFixed(2)}, ${positions.length} posiciones`);
+    log('PORTFOLIO', `Portfolio updated: $${currentState.total.toFixed(2)}, ${positions.length} positions`);
 
-    // Broadcast a todos los clientes
+    // Broadcast to all clients
     broadcast({ type: 'STATE', ...currentState });
 
   } catch (err) {
-    log('PORTFOLIO', 'Error refrescando:', err.message);
+    log('PORTFOLIO', 'Refresh error:', err.message);
   }
 }
 
@@ -257,10 +257,10 @@ async function handleClientMessage(ws, message) {
   const { type, symbol, amount, percent } = message;
 
   if (type === 'BUY') {
-    log('TRADE', `Orden de compra: ${symbol} por $${amount}`);
+    log('TRADE', `Buy order: ${symbol} for $${amount}`);
 
     if (!tradeExecutor) {
-      ws.send(JSON.stringify({ type: 'ORDER_FAIL', message: 'No conectado a IB' }));
+      ws.send(JSON.stringify({ type: 'ORDER_FAIL', message: 'Not connected to IB' }));
       return;
     }
 
@@ -269,17 +269,17 @@ async function handleClientMessage(ws, message) {
       const price = await portfolioManager.getPrice(symbol);
       const currentPrice = price.last || price.close;
       if (!currentPrice) {
-        ws.send(JSON.stringify({ type: 'ORDER_FAIL', message: 'No se pudo obtener precio' }));
+        ws.send(JSON.stringify({ type: 'ORDER_FAIL', message: 'Could not fetch price' }));
         return;
       }
 
       const quantity = Math.floor(amount / currentPrice);
       if (quantity <= 0) {
-        ws.send(JSON.stringify({ type: 'ORDER_FAIL', message: 'Monto muy bajo' }));
+        ws.send(JSON.stringify({ type: 'ORDER_FAIL', message: 'Amount too low' }));
         return;
       }
 
-      log('TRADE', `Comprando ${quantity} acciones de ${symbol} a ~$${currentPrice}`);
+      log('TRADE', `Buying ${quantity} shares of ${symbol} at ~$${currentPrice}`);
       const result = await tradeExecutor.buy(symbol, quantity);
 
       ws.send(JSON.stringify({
@@ -287,23 +287,23 @@ async function handleClientMessage(ws, message) {
         action: 'BUY',
         symbol,
         quantity,
-        message: result.warning ? 'Orden enviada (mercado cerrado)' : 'Orden ejecutada'
+        message: result.warning ? 'Order submitted (market closed)' : 'Order filled'
       }));
 
       // Refrescar portfolio después de un momento
       setTimeout(refreshPortfolio, 2000);
 
     } catch (err) {
-      log('TRADE', 'Error en compra:', err.message);
+      log('TRADE', 'Buy error:', err.message);
       ws.send(JSON.stringify({ type: 'ORDER_FAIL', message: err.message }));
     }
   }
 
   if (type === 'SELL') {
-    log('TRADE', `Orden de venta: ${symbol} ${percent}%`);
+    log('TRADE', `Sell order: ${symbol} ${percent}%`);
 
     if (!tradeExecutor) {
-      ws.send(JSON.stringify({ type: 'ORDER_FAIL', message: 'No conectado a IB' }));
+      ws.send(JSON.stringify({ type: 'ORDER_FAIL', message: 'Not connected to IB' }));
       return;
     }
 
@@ -311,17 +311,17 @@ async function handleClientMessage(ws, message) {
       // Encontrar posición actual
       const position = currentState.positions.find(p => p.symbol === symbol);
       if (!position) {
-        ws.send(JSON.stringify({ type: 'ORDER_FAIL', message: 'No tenés esta posición' }));
+        ws.send(JSON.stringify({ type: 'ORDER_FAIL', message: 'You do not own this position' }));
         return;
       }
 
       const quantity = Math.floor(position.quantity * (percent / 100));
       if (quantity <= 0) {
-        ws.send(JSON.stringify({ type: 'ORDER_FAIL', message: 'Cantidad muy baja' }));
+        ws.send(JSON.stringify({ type: 'ORDER_FAIL', message: 'Quantity too low' }));
         return;
       }
 
-      log('TRADE', `Vendiendo ${quantity} acciones de ${symbol}`);
+      log('TRADE', `Selling ${quantity} shares of ${symbol}`);
       const result = await tradeExecutor.sell(symbol, quantity);
 
       ws.send(JSON.stringify({
@@ -329,14 +329,14 @@ async function handleClientMessage(ws, message) {
         action: 'SELL',
         symbol,
         quantity,
-        message: result.warning ? 'Orden enviada (mercado cerrado)' : 'Orden ejecutada'
+        message: result.warning ? 'Order submitted (market closed)' : 'Order filled'
       }));
 
       // Refrescar portfolio después de un momento
       setTimeout(refreshPortfolio, 2000);
 
     } catch (err) {
-      log('TRADE', 'Error en venta:', err.message);
+      log('TRADE', 'Sell error:', err.message);
       ws.send(JSON.stringify({ type: 'ORDER_FAIL', message: err.message }));
     }
   }
@@ -369,18 +369,18 @@ server.listen(CONFIG.port, '0.0.0.0', () => {
   console.log('║                                                            ║');
   console.log(`║   URL:  https://localhost:${CONFIG.port}                        ║`);
   console.log('║                                                            ║');
-  console.log('║   En tu iPhone:                                            ║');
-  console.log(`║   1. Abrí Safari → https://<IP-de-tu-Mac>:${CONFIG.port}        ║`);
-  console.log('║   2. Aceptá el certificado                                 ║');
-  console.log('║   3. Compartir → Agregar a inicio                          ║');
+  console.log('║   On your iPhone:                                          ║');
+  console.log(`║   1. Open Safari → https://<your-mac-ip>:${CONFIG.port}          ║`);
+  console.log('║   2. Accept the local certificate                          ║');
+  console.log('║   3. Share → Add to Home Screen                            ║');
   console.log('║                                                            ║');
   console.log('╚════════════════════════════════════════════════════════════╝');
   console.log('\n');
 
-  // Mostrar IPs disponibles
+  // Print available IPs
   import('os').then(os => {
     const interfaces = os.networkInterfaces();
-    console.log('IPs disponibles:');
+    console.log('Available IPs:');
     for (const [name, addrs] of Object.entries(interfaces)) {
       for (const addr of addrs) {
         if (addr.family === 'IPv4' && !addr.internal) {
@@ -391,7 +391,7 @@ server.listen(CONFIG.port, '0.0.0.0', () => {
     console.log('\n');
   });
 
-  // Iniciar conexión IB
+  // Start IB connection
   initializeIB();
 });
 
@@ -400,7 +400,7 @@ server.listen(CONFIG.port, '0.0.0.0', () => {
 // ═══════════════════════════════════════════════════════════════
 
 process.on('SIGINT', () => {
-  log('SERVER', 'Cerrando...');
+  log('SERVER', 'Shutting down...');
   if (ibConnection) {
     ibConnection.disconnect();
   }
@@ -409,7 +409,7 @@ process.on('SIGINT', () => {
 });
 
 process.on('SIGTERM', () => {
-  log('SERVER', 'Cerrando...');
+  log('SERVER', 'Shutting down...');
   if (ibConnection) {
     ibConnection.disconnect();
   }

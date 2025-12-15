@@ -62,7 +62,7 @@ npm start -- --debug
 Help:
 
 ```bash
-npx tsx src/index.jsx --help
+npm start -- --help
 ```
 
 Optional: install as a local command (`folio` / `ib`):

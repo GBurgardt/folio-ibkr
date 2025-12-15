@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-require('dotenv').config();
-const ib = require('ib');
-const chalk = require('chalk');
-const ora = require('ora');
-const inquirer = require('inquirer');
+import 'dotenv/config';
+import ib from 'ib';
+import chalk from 'chalk';
+import ora from 'ora';
+import inquirer from 'inquirer';
 
 const IB_HOST = process.env.IB_HOST || '127.0.0.1';
 const IB_PORT = Number(process.env.IB_PORT || 7497);
@@ -52,14 +52,14 @@ function waitForConnection(instance) {
     const onError = (err) => {
       if (!isConnected) {
         cleanup();
-        reject(new Error(err?.message || 'Fallo conectando a Interactive Brokers'));
+        reject(new Error(err?.message || 'Failed to connect to Interactive Brokers'));
       }
     };
 
     const onDisconnected = () => {
       if (!isConnected) {
         cleanup();
-        reject(new Error('Conexión cerrada antes de establecerse'));
+        reject(new Error('Connection closed before it was established'));
       }
     };
 
@@ -79,7 +79,7 @@ function requestNextOrderId(instance) {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
       cleanup();
-      reject(new Error('Timeout esperando nextValidId de IB'));
+      reject(new Error('Timeout waiting for IB nextValidId'));
     }, 5000);
 
     const onNextValidId = (orderId) => {
@@ -89,7 +89,7 @@ function requestNextOrderId(instance) {
 
     const onError = (err) => {
       cleanup();
-      reject(new Error(err?.message || 'Error obteniendo nextValidId'));
+      reject(new Error(err?.message || 'Error getting nextValidId'));
     };
 
     const cleanup = () => {
@@ -112,7 +112,7 @@ function fetchAccountFunds(instance) {
       if (summary.availableFunds !== null || summary.totalCashValue !== null) {
         resolve(summary);
       } else {
-        reject(new Error('Timeout obteniendo fondos de la cuenta'));
+        reject(new Error('Timeout fetching account funds'));
       }
     }, 6000);
 
@@ -130,7 +130,7 @@ function fetchAccountFunds(instance) {
       if (summary.availableFunds !== null || summary.totalCashValue !== null) {
         resolve(summary);
       } else {
-        reject(new Error('Interactive Brokers no devolvió fondos disponibles'));
+        reject(new Error('Interactive Brokers did not return available funds'));
       }
     };
 
@@ -181,7 +181,7 @@ function fetchMarketPrice(instance) {
     const timeout = setTimeout(() => {
       if (!resolved) {
         cleanup();
-        reject(new Error(`Timeout obteniendo precio de mercado para ${SYMBOL}`));
+        reject(new Error(`Timeout fetching market price for ${SYMBOL}`));
       }
     }, 7000);
 
@@ -199,7 +199,7 @@ function fetchMarketPrice(instance) {
     const onTickSnapshotEnd = (tickerId) => {
       if (tickerId !== MARKET_DATA_REQ_ID || resolved) return;
       cleanup();
-      reject(new Error('IB cerró el snapshot sin precio válido para TSLA'));
+      reject(new Error('IB closed the snapshot without a valid price for TSLA'));
     };
 
     const onError = (err, data) => {
@@ -211,7 +211,7 @@ function fetchMarketPrice(instance) {
 
       if (resolved) return;
       cleanup();
-      const message = err?.message || 'Error obteniendo datos de mercado de TSLA';
+      const message = err?.message || 'Error fetching TSLA market data';
       reject(new Error(message));
     };
 
@@ -239,7 +239,7 @@ function submitMarketOrder(instance, orderId, quantity) {
   return new Promise((resolve, reject) => {
     const contract = instance.contract.stock(SYMBOL, EXCHANGE, CURRENCY);
     const order = instance.order.market('BUY', quantity);
-    let lastStatus = 'Enviando';
+    let lastStatus = 'Submitting';
     let resolved = false;
 
     const terminalStatuses = new Set(['Filled', 'Cancelled', 'Inactive']);
@@ -257,7 +257,7 @@ function submitMarketOrder(instance, orderId, quantity) {
     const onOrderStatus = (id, status, filled, remaining, avgFillPrice) => {
       if (id !== orderId) return;
       lastStatus = status;
-      console.log(chalk.cyan(`Estado orden ${id}: ${status} | Ejecutadas: ${filled} | Restantes: ${remaining} | Precio promedio: ${avgFillPrice}`));
+      console.log(chalk.cyan(`Order ${id}: ${status} | Filled: ${filled} | Remaining: ${remaining} | Avg price: ${avgFillPrice}`));
       if (!resolved && terminalStatuses.has(status)) {
         resolved = true;
         cleanup();
@@ -269,7 +269,7 @@ function submitMarketOrder(instance, orderId, quantity) {
       if (resolved) return;
       resolved = true;
       cleanup();
-      reject(new Error(err?.message || 'Error al enviar la orden de compra'));
+      reject(new Error(err?.message || 'Error submitting buy order'));
     };
 
     const cleanup = () => {
@@ -287,56 +287,56 @@ function submitMarketOrder(instance, orderId, quantity) {
 async function main() {
   client = createClient();
 
-  const connectSpinner = ora('Conectando a Interactive Brokers...').start();
+  const connectSpinner = ora('Connecting to Interactive Brokers...').start();
   client.connect();
   try {
     await waitForConnection(client);
-    connectSpinner.succeed('Conectado a Interactive Brokers');
+    connectSpinner.succeed('Connected to Interactive Brokers');
   } catch (error) {
-    connectSpinner.fail('No se pudo conectar a Interactive Brokers');
+    connectSpinner.fail('Could not connect to Interactive Brokers');
     throw error;
   }
 
   let nextOrderId;
-  const orderIdSpinner = ora('Solicitando próximo orderId...').start();
+  const orderIdSpinner = ora('Requesting next orderId...').start();
   try {
     nextOrderId = await requestNextOrderId(client);
-    orderIdSpinner.succeed(`Próximo orderId: ${nextOrderId}`);
+    orderIdSpinner.succeed(`Next orderId: ${nextOrderId}`);
   } catch (error) {
-    orderIdSpinner.fail('No se pudo obtener un orderId válido');
+    orderIdSpinner.fail('Could not get a valid orderId');
     throw error;
   }
 
   let account;
-  const fundsSpinner = ora('Obteniendo fondos disponibles...').start();
+  const fundsSpinner = ora('Fetching available funds...').start();
   try {
     account = await fetchAccountFunds(client);
     const effectiveCurrency = account.currency || CURRENCY;
     const available = account.availableFunds ?? account.totalCashValue ?? 0;
-    fundsSpinner.succeed(`Fondos disponibles: $${available.toFixed(2)} ${effectiveCurrency}`);
+    fundsSpinner.succeed(`Available funds: $${available.toFixed(2)} ${effectiveCurrency}`);
   } catch (error) {
-    fundsSpinner.fail('Error obteniendo fondos');
+    fundsSpinner.fail('Error fetching funds');
     throw error;
   }
 
   let market;
-  const priceSpinner = ora(`Consultando precio actual de ${SYMBOL}...`).start();
+  const priceSpinner = ora(`Fetching ${SYMBOL} price...`).start();
   try {
     market = await fetchMarketPrice(client);
-    priceSpinner.succeed(`Precio ${market.fieldLabel} de ${SYMBOL}: $${market.price.toFixed(2)}`);
+    priceSpinner.succeed(`${SYMBOL} ${market.fieldLabel}: $${market.price.toFixed(2)}`);
   } catch (error) {
-    priceSpinner.fail('Error obteniendo precio de mercado');
-    console.log(chalk.yellow(`Aviso: ${error.message}`));
+    priceSpinner.fail('Error fetching market price');
+    console.log(chalk.yellow(`Warning: ${error.message}`));
 
     const answer = await inquirer.prompt([
       {
         type: 'input',
         name: 'manualPrice',
-        message: `Ingresa manualmente el precio estimado por acción de ${SYMBOL} (por ejemplo 200.00):`,
+        message: `Enter an estimated price per share for ${SYMBOL} (e.g. 200.00):`,
         validate: (value) => {
           const parsed = Number(value);
           if (!Number.isFinite(parsed) || parsed <= 0) {
-            return 'Introduce un número mayor a 0';
+            return 'Enter a number greater than 0';
           }
           return true;
         }
@@ -345,47 +345,47 @@ async function main() {
 
     market = {
       price: Number(answer.manualPrice),
-      fieldLabel: 'precio ingresado manualmente'
+      fieldLabel: 'manual price'
     };
   }
 
   const cashToUse = account.availableFunds ?? account.totalCashValue ?? 0;
   if (!Number.isFinite(cashToUse) || cashToUse <= 0) {
-    console.log(chalk.yellow('No hay efectivo disponible para comprar TSLA.'));
+    console.log(chalk.yellow('No available cash to buy TSLA.'));
     return;
   }
 
   const maxShares = Math.floor(cashToUse / market.price);
   if (maxShares <= 0) {
-    console.log(chalk.yellow('El efectivo disponible no alcanza para una acción de TSLA al precio actual.'));
+    console.log(chalk.yellow('Available cash is not enough to buy 1 share of TSLA at the current price.'));
     return;
   }
 
   const estimatedCost = maxShares * market.price;
 
-  console.log(chalk.green(`\nCon efectivo disponible ≈ $${cashToUse.toFixed(2)}, puedes comprar ${maxShares} acciones de ${SYMBOL}.`));
-  console.log(chalk.green(`Costo estimado: ≈ $${estimatedCost.toFixed(2)} (${market.fieldLabel}).`));
+  console.log(chalk.green(`\nWith available cash ≈ $${cashToUse.toFixed(2)}, you can buy ${maxShares} shares of ${SYMBOL}.`));
+  console.log(chalk.green(`Estimated cost: ≈ $${estimatedCost.toFixed(2)} (${market.fieldLabel}).`));
 
   const confirmation = await inquirer.prompt([
     {
       type: 'confirm',
       name: 'accept',
       default: false,
-      message: `¿Estás seguro de que quieres comprar ${maxShares} acciones de ${SYMBOL} a aproximadamente $${market.price.toFixed(2)} cada una?`
+      message: `Are you sure you want to buy ${maxShares} shares of ${SYMBOL} at approximately $${market.price.toFixed(2)} each?`
     }
   ]);
 
   if (!confirmation.accept) {
-    console.log(chalk.yellow('Operación cancelada por el usuario.'));
+    console.log(chalk.yellow('Cancelled by user.'));
     return;
   }
 
-  const orderSpinner = ora(`Enviando orden de compra de ${maxShares} ${SYMBOL}...`).start();
+  const orderSpinner = ora(`Submitting buy order for ${maxShares} ${SYMBOL}...`).start();
   try {
     const result = await submitMarketOrder(client, nextOrderId, maxShares);
-    orderSpinner.succeed(`Orden ${nextOrderId} enviada (${result.status}).`);
+    orderSpinner.succeed(`Order ${nextOrderId} submitted (${result.status}).`);
   } catch (error) {
-    orderSpinner.fail('La orden de compra falló');
+    orderSpinner.fail('Buy order failed');
     throw error;
   }
 }

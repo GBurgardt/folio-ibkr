@@ -55,7 +55,7 @@ export function useIBConnection(options = {}) {
       if (status !== 'connected') {
         debug('Setting error state due to timeout');
         setStatus('error');
-        setError('Timeout - TWS no responde. Verificá que esté abierto.');
+        setError('Timeout — TWS is not responding. Make sure it is running.');
         isConnectingRef.current = false;
       }
     }, 10000);
@@ -75,13 +75,13 @@ export function useIBConnection(options = {}) {
         debug('ECONNREFUSED detected - TWS not running or port blocked');
         clearTimeout(connectionTimeout);
         setStatus('error');
-        setError('No puedo conectar a TWS. ¿Está abierto?');
+        setError('Cannot connect to TWS. Is it running?');
         isConnectingRef.current = false;
       } else if (message.includes('ETIMEDOUT')) {
         debug('ETIMEDOUT detected - Connection timed out');
         clearTimeout(connectionTimeout);
         setStatus('error');
-        setError('Timeout conectando a TWS. Verificá que la API esté habilitada.');
+        setError('Timeout connecting to TWS. Verify the API is enabled.');
         isConnectingRef.current = false;
       } else if (message.includes('Cannot send data when disconnected') ||
                  message.includes('Cannot disconnect if already disconnected')) {
@@ -121,11 +121,11 @@ export function useIBConnection(options = {}) {
     debug('Calling client.connect()...');
     debug('='.repeat(50));
     debug('TWS CONFIGURATION CHECKLIST:');
-    debug('1. TWS abierto y logueado?');
+    debug('1. TWS open and logged in?');
     debug('2. Edit > Global Config > API > Settings:');
     debug('   - "Enable ActiveX and Socket Clients" = ON');
     debug('   - Socket Port = ' + port);
-    debug('3. No hay otra app conectada con clientId=' + clientId);
+    debug('3. No other app connected with clientId=' + clientId);
     debug('='.repeat(50));
 
     try {

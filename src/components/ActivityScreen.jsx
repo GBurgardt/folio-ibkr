@@ -37,9 +37,9 @@ const parseExecutionTime = (timeStr) => {
 /**
  * Format execution time for display
  * - Today: "14:30"
- * - Yesterday: "ayer"
- * - This week: "lun", "mar", etc.
- * - Older: "5 dic"
+ * - Yesterday: "yesterday"
+ * - This week: "mon", "tue", etc.
+ * - Older: "5 dec"
  */
 const formatExecutionTime = (timeStr) => {
   const date = parseExecutionTime(timeStr);
@@ -52,8 +52,8 @@ const formatExecutionTime = (timeStr) => {
   const weekAgo = new Date(today);
   weekAgo.setDate(weekAgo.getDate() - 7);
 
-  const days = ['dom', 'lun', 'mar', 'mie', 'jue', 'vie', 'sab'];
-  const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  const days = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+  const months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 
   // Today: show time
   if (date >= today) {
@@ -64,7 +64,7 @@ const formatExecutionTime = (timeStr) => {
 
   // Yesterday
   if (date >= yesterday) {
-    return 'ayer';
+    return 'yesterday';
   }
 
   // Within last week: show day name
@@ -125,7 +125,7 @@ export function ActivityScreen({
   if (loading && (!executions || executions.length === 0)) {
     return (
       <Box flexDirection="column" padding={1}>
-        <Text color="gray">cargando...</Text>
+        <Text color="gray">loading...</Text>
       </Box>
     );
   }
@@ -134,7 +134,7 @@ export function ActivityScreen({
   if (!executions || executions.length === 0) {
     return (
       <Box flexDirection="column" padding={1}>
-        <Text color="gray">Sin actividad hoy</Text>
+        <Text color="gray">No activity today</Text>
       </Box>
     );
   }

@@ -84,7 +84,7 @@ export function Portfolio({
       >
         {positions.length === 0 ? (
           <Box paddingX={1}>
-            <Text color="gray">No tenés posiciones abiertas</Text>
+            <Text color="gray">No open positions</Text>
           </Box>
         ) : (
           positions.map((position, index) => (
@@ -111,7 +111,7 @@ export function Portfolio({
 
       {loading && (
         <Box marginTop={1}>
-          <Text color="yellow">Actualizando...</Text>
+          <Text color="yellow">Updating...</Text>
         </Box>
       )}
     </Box>

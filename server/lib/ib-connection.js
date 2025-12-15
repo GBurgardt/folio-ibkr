@@ -43,7 +43,7 @@ export class IBConnection extends EventEmitter {
         return;
       }
 
-      log(`Conectando a ${this.host}:${this.port} (clientId: ${this.clientId})`);
+      log(`Connecting to ${this.host}:${this.port} (clientId: ${this.clientId})`);
 
       this.client = new IB({
         clientId: this.clientId,
@@ -53,8 +53,8 @@ export class IBConnection extends EventEmitter {
 
       // Timeout de conexión
       const timeout = setTimeout(() => {
-        log('Timeout de conexión');
-        reject(new Error('Timeout conectando a TWS'));
+        log('Connection timeout');
+        reject(new Error('Timeout connecting to TWS'));
       }, 10000);
 
       // Eventos de error
@@ -69,13 +69,13 @@ export class IBConnection extends EventEmitter {
 
         if (message.includes('ECONNREFUSED')) {
           clearTimeout(timeout);
-          reject(new Error('TWS no está corriendo o el puerto está bloqueado'));
+          reject(new Error('TWS is not running or the port is blocked'));
           return;
         }
 
         if (message.includes('ETIMEDOUT')) {
           clearTimeout(timeout);
-          reject(new Error('Timeout de conexión'));
+          reject(new Error('Connection timeout'));
           return;
         }
 
@@ -91,7 +91,7 @@ export class IBConnection extends EventEmitter {
 
       // Conexión exitosa (recibimos nextValidId) - usar once para evitar duplicados
       this.client.once('nextValidId', (orderId) => {
-        log('Conectado. Next order ID:', orderId);
+        log('Connected. Next order ID:', orderId);
         clearTimeout(timeout);
 
         this.connected = true;
@@ -113,7 +113,7 @@ export class IBConnection extends EventEmitter {
 
       // Desconexión
       this.client.on('disconnected', () => {
-        log('Desconectado');
+        log('Disconnected');
         this.connected = false;
         this.emit('disconnected');
       });
@@ -145,7 +145,7 @@ export class IBConnection extends EventEmitter {
   }
 
   /**
-   * ¿Está conectado?
+   * Is it connected?
    */
   isConnected() {
     return this.connected;
@@ -164,13 +164,13 @@ export class IBConnection extends EventEmitter {
   getNextOrderId() {
     return new Promise((resolve, reject) => {
       if (!this.client || !this.connected) {
-        reject(new Error('No conectado'));
+        reject(new Error('Not connected'));
         return;
       }
 
       const timeout = setTimeout(() => {
         cleanup();
-        reject(new Error('Timeout obteniendo order ID'));
+        reject(new Error('Timeout getting order ID'));
       }, 5000);
 
       const onNextValidId = (orderId) => {

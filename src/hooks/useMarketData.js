@@ -30,7 +30,7 @@ export function useMarketData(getClient, isConnected) {
     const client = getClient();
     if (!client || !isConnected) {
       debug(`Rejected: client=${!!client} isConnected=${isConnected}`);
-      return Promise.reject(new Error('No conectado'));
+      return Promise.reject(new Error('Not connected'));
     }
 
     if (activeRequestsRef.current[symbol]) {

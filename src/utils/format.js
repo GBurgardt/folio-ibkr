@@ -56,7 +56,7 @@ export function padLeft(str, len) {
 
 /**
  * Format a timestamp to human-readable relative time
- * Examples: "ahora", "hace 5 min", "hace 2 horas", "hace 3 días", "el lunes"
+ * Examples: "now", "5m ago", "2h ago", "yesterday", "Mon"
  */
 export function formatRelativeTime(timestamp) {
   if (!timestamp) return '';
@@ -74,50 +74,50 @@ export function formatRelativeTime(timestamp) {
 
   // Less than 1 minute
   if (diffSeconds < 60) {
-    return 'ahora';
+    return 'now';
   }
 
   // Less than 1 hour
   if (diffMinutes < 60) {
-    return `hace ${diffMinutes} min`;
+    return `${diffMinutes}m ago`;
   }
 
   // Less than 24 hours
   if (diffHours < 24) {
-    return diffHours === 1 ? 'hace 1 hora' : `hace ${diffHours} horas`;
+    return diffHours === 1 ? '1h ago' : `${diffHours}h ago`;
   }
 
   // Less than 7 days - show day name for this week
   if (diffDays < 7) {
-    const days = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const dayName = days[date.getDay()];
     const hours = date.getHours().toString().padStart(2, '0');
     const minutes = date.getMinutes().toString().padStart(2, '0');
 
     if (diffDays === 1) {
-      return `ayer ${hours}:${minutes}`;
+      return `yesterday ${hours}:${minutes}`;
     }
 
-    return `el ${dayName}`;
+    return dayName;
   }
 
   // Less than 4 weeks
   if (diffWeeks < 4) {
-    return diffWeeks === 1 ? 'hace 1 semana' : `hace ${diffWeeks} semanas`;
+    return diffWeeks === 1 ? '1w ago' : `${diffWeeks}w ago`;
   }
 
   // Less than 12 months
   if (diffMonths < 12) {
-    return diffMonths === 1 ? 'hace 1 mes' : `hace ${diffMonths} meses`;
+    return diffMonths === 1 ? '1mo ago' : `${diffMonths}mo ago`;
   }
 
   // Years
-  return diffYears === 1 ? 'hace 1 año' : `hace ${diffYears} años`;
+  return diffYears === 1 ? '1y ago' : `${diffYears}y ago`;
 }
 
 /**
  * Format future execution time for pending orders
- * Examples: "en segundos", "mañana 9:30", "lunes 9:30"
+ * Examples: "in seconds", "tomorrow 9:30", "Mon 9:30"
  *
  * US Market hours: 9:30 AM - 4:00 PM ET (Eastern Time)
  */
@@ -138,11 +138,11 @@ export function formatFutureTime(status, warningTimestamp = null) {
       const isTomorrow = date.toDateString() === tomorrow.toDateString();
 
       if (isToday) {
-        return `hoy ${timeStr}`;
+        return `today ${timeStr}`;
       } else if (isTomorrow) {
-        return `mañana ${timeStr}`;
+        return `tomorrow ${timeStr}`;
       } else {
-        const days = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
         return `${days[date.getDay()]} ${timeStr}`;
       }
     } catch {
@@ -153,9 +153,9 @@ export function formatFutureTime(status, warningTimestamp = null) {
   // Status-based messages
   switch (status) {
     case 'PendingSubmit':
-      return 'enviando...';
+      return 'sending...';
     case 'PreSubmitted':
-      return 'procesando...';
+      return 'processing...';
     case 'Submitted':
       // Check if market is open (simplified: weekday 9:30-16:00 ET)
       const now = new Date();
@@ -166,12 +166,12 @@ export function formatFutureTime(status, warningTimestamp = null) {
       const isMarketHours = etHour >= 9.5 && etHour < 16;
 
       if (!isWeekend && isMarketHours) {
-        return 'ejecutando...';
+        return 'executing...';
       } else {
         return getNextMarketOpen();
       }
     default:
-      return 'pendiente';
+      return 'pending';
   }
 }
 
@@ -201,23 +201,23 @@ function getNextMarketOpen() {
   // If it's a weekday and before market close
   if (dayOfWeek >= 1 && dayOfWeek <= 5) {
     if (etHour < 9.5) {
-      return 'hoy 9:30';
+      return 'today 9:30';
     } else if (etHour >= 16) {
       // After close, next day
       if (dayOfWeek === 5) {
-        return 'lunes 9:30';
+        return 'Mon 9:30';
       }
-      return 'mañana 9:30';
+      return 'tomorrow 9:30';
     }
   }
 
   // Weekend
   if (dayOfWeek === 6) { // Saturday
-    return 'lunes 9:30';
+    return 'Mon 9:30';
   }
   if (dayOfWeek === 0) { // Sunday
-    return 'mañana 9:30';
+    return 'tomorrow 9:30';
   }
 
-  return 'próxima apertura';
+  return 'next open';
 }

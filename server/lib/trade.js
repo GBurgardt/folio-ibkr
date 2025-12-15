@@ -84,10 +84,10 @@ export class TradeExecutor {
   async _submitOrder({ symbol, action, quantity, orderType = 'MKT', exchange = 'SMART', currency = 'USD' }) {
     const client = this.ibConnection.getClient();
     if (!client || !this.ibConnection.isConnected()) {
-      throw new Error('No conectado a IB');
+      throw new Error('Not connected to IB');
     }
 
-    log(`Enviando orden: ${action} ${quantity} ${symbol}`);
+    log(`Submitting order: ${action} ${quantity} ${symbol}`);
 
     // Obtener order ID
     const orderId = await this.ibConnection.getNextOrderId();
@@ -99,7 +99,7 @@ export class TradeExecutor {
     order.tif = 'DAY';
 
     return new Promise((resolve, reject) => {
-      let lastStatus = 'Enviando';
+      let lastStatus = 'Submitting';
       let resolved = false;
       let orderWarning = null;
       let orderRejection = null;
@@ -136,7 +136,7 @@ export class TradeExecutor {
       const onOrderStatus = (id, status, filled, remaining, avgFillPrice) => {
         if (id !== orderId) return;
 
-        log(`Status de orden ${id}: ${status} (filled: ${filled}, avg: ${avgFillPrice})`);
+        log(`Order status ${id}: ${status} (filled: ${filled}, avg: ${avgFillPrice})`);
         lastStatus = status;
 
         // Resolver en estado terminal o aceptado
@@ -161,7 +161,7 @@ export class TradeExecutor {
       const onError = (err, data) => {
         if (resolved) return;
 
-        const message = err?.message || 'Error al enviar orden';
+        const message = err?.message || 'Error submitting order';
         const errorId = data?.id;
 
         // Ignorar errores de otras órdenes
@@ -190,7 +190,7 @@ export class TradeExecutor {
         }
 
         // Error real
-        log('Error de orden:', message);
+        log('Order error:', message);
         resolved = true;
         cleanup();
         reject(new Error(message));
@@ -209,7 +209,7 @@ export class TradeExecutor {
       // Enviar orden
       try {
         client.placeOrder(orderId, contract, order);
-        log('Orden enviada');
+        log('Order submitted');
       } catch (err) {
         cleanup();
         reject(err);

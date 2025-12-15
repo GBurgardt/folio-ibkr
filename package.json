@@ -1,6 +1,6 @@
 {
   "name": "folio",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Beautiful Interactive Brokers portfolio manager",
   "license": "MIT",
   "repository": {
@@ -10,8 +10,8 @@
   "type": "module",
   "main": "src/index.jsx",
   "bin": {
-    "ib": "./src/index.jsx",
-    "folio": "./src/index.jsx"
+    "ib": "./bin/folio.js",
+    "folio": "./bin/folio.js"
   },
   "scripts": {
     "start": "tsx src/index.jsx",

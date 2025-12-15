@@ -22,12 +22,12 @@ export function SellScreen({
     const qty = quantity.toLowerCase() === 'all' ? ownedQuantity : parseInt(quantity, 10);
 
     if (isNaN(qty) || qty <= 0) {
-      setError('Ingresá un número válido');
+      setError('Enter a valid number');
       return;
     }
 
     if (qty > ownedQuantity) {
-      setError(`Solo tenés ${ownedQuantity} acciones`);
+      setError(`You only have ${ownedQuantity} shares`);
       return;
     }
 
@@ -62,7 +62,7 @@ export function SellScreen({
           paddingX={2}
           paddingY={1}
         >
-          <Text>Obteniendo precio de {symbol}...</Text>
+          <Text>Fetching price for {symbol}...</Text>
         </Box>
       </Box>
     );
@@ -81,7 +81,7 @@ export function SellScreen({
           paddingX={2}
           paddingY={1}
         >
-          <Text bold color="yellow">¿Confirmar venta?</Text>
+          <Text bold color="yellow">Confirm sell?</Text>
         </Box>
 
         <Box
@@ -94,31 +94,31 @@ export function SellScreen({
           gap={1}
         >
           <Box justifyContent="space-between">
-            <Text color="gray">Cantidad:</Text>
+            <Text color="gray">Quantity:</Text>
             <Text bold>{qty} × {symbol}</Text>
           </Box>
 
           <Box justifyContent="space-between">
-            <Text color="gray">Precio aprox:</Text>
+            <Text color="gray">Est. price:</Text>
             <Text color={isEstimatedPrice ? 'yellow' : undefined}>
               {isEstimatedPrice ? '~' : ''}{formatMoney(currentPrice)}
             </Text>
           </Box>
 
           <Box justifyContent="space-between">
-            <Text color="gray">Recibirás aprox:</Text>
+            <Text color="gray">Est. proceeds:</Text>
             <Text bold color="green">{formatMoney(total)}</Text>
           </Box>
 
           {isEstimatedPrice && (
-            <Text color="yellow" dimColor>Precio de cierre (mercado cerrado)</Text>
+            <Text color="yellow" dimColor>Close price (market closed)</Text>
           )}
         </Box>
 
         {/* Footer */}
         <Box marginTop={1}>
           <Text color="gray">Enter </Text>
-          <Text color="white">confirmar</Text>
+          <Text color="white">confirm</Text>
         </Box>
       </Box>
     );
@@ -133,7 +133,7 @@ export function SellScreen({
         paddingX={2}
         paddingY={1}
       >
-        <Text bold color="red">Vender {symbol}</Text>
+        <Text bold color="red">Sell {symbol}</Text>
       </Box>
 
       {/* Info */}
@@ -147,19 +147,19 @@ export function SellScreen({
         gap={1}
       >
         <Box justifyContent="space-between">
-          <Text color="gray">Tenés:</Text>
-          <Text>{ownedQuantity} acciones</Text>
+          <Text color="gray">You have:</Text>
+          <Text>{ownedQuantity} shares</Text>
         </Box>
 
         <Box justifyContent="space-between">
-          <Text color="gray">{isEstimatedPrice ? 'Precio estimado:' : 'Precio actual:'}</Text>
+          <Text color="gray">{isEstimatedPrice ? 'Estimated price:' : 'Current price:'}</Text>
           <Text color={isEstimatedPrice ? 'yellow' : undefined}>
             {currentPrice ? (isEstimatedPrice ? '~' : '') + formatMoney(currentPrice) : '--'}
           </Text>
         </Box>
 
         <Box justifyContent="space-between">
-          <Text color="gray">Valor total:</Text>
+          <Text color="gray">Total value:</Text>
           <Text>{currentPrice ? formatMoney(ownedQuantity * currentPrice) : '--'}</Text>
         </Box>
       </Box>
@@ -175,19 +175,19 @@ export function SellScreen({
         gap={1}
       >
         <Box>
-          <Text color="gray">Cantidad a vender: </Text>
+          <Text color="gray">Quantity to sell: </Text>
           <TextInput
             value={quantity}
             onChange={setQuantity}
             onSubmit={handleSubmit}
-            placeholder="Ej: 5 o 'all'"
+            placeholder="e.g. 5 or 'all'"
           />
         </Box>
 
         {quantity && !isNaN(parseInt(quantity, 10)) && currentPrice && (
           <Box>
             <Text color="gray">
-              Recibirás aprox: {formatMoney(parseInt(quantity, 10) * currentPrice)}
+              Est. proceeds: {formatMoney(parseInt(quantity, 10) * currentPrice)}
             </Text>
           </Box>
         )}
@@ -200,7 +200,7 @@ export function SellScreen({
       {/* Footer */}
       <Box marginTop={1}>
         <Text color="gray">Enter </Text>
-        <Text color="white">continuar</Text>
+        <Text color="white">continue</Text>
       </Box>
     </Box>
   );

@@ -84,22 +84,22 @@ export function humanizeWarning(warning) {
         const timeStr = `${hours}:${minutes}`;
 
         if (isToday) {
-          return `Ejecuta hoy ${timeStr} (mercado cerrado)`;
+          return `Executes today ${timeStr} (market closed)`;
         } else if (isTomorrow) {
-          return `Ejecuta mañana ${timeStr} (mercado cerrado)`;
+          return `Executes tomorrow ${timeStr} (market closed)`;
         } else {
-          const dayNames = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
-          return `Ejecuta el ${dayNames[date.getDay()]} ${timeStr}`;
+          const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+          return `Executes ${dayNames[date.getDay()]} ${timeStr}`;
         }
       } catch {
-        return 'Ejecuta cuando abra el mercado';
+        return 'Executes when the market opens';
       }
     }
-    return 'Ejecuta cuando abra el mercado';
+    return 'Executes when the market opens';
   }
 
   if (warning.type === 'order_held') {
-    return 'Orden en espera';
+    return 'Order held';
   }
 
   return null;
@@ -115,13 +115,13 @@ export function useTrade(getClient, isConnected) {
     return new Promise((resolve, reject) => {
       const client = getClient();
       if (!client || !isConnected) {
-        reject(new Error('No conectado'));
+        reject(new Error('Not connected'));
         return;
       }
 
       const timeout = setTimeout(() => {
         cleanup();
-        reject(new Error('Timeout obteniendo order ID'));
+        reject(new Error('Timeout getting order ID'));
       }, 5000);
 
       const onNextValidId = (orderId) => {
@@ -150,7 +150,7 @@ export function useTrade(getClient, isConnected) {
   }) => {
     const client = getClient();
     if (!client || !isConnected) {
-      throw new Error('No conectado');
+      throw new Error('Not connected');
     }
 
     setLoading(true);
@@ -164,7 +164,7 @@ export function useTrade(getClient, isConnected) {
       order.tif = 'DAY';
 
       return new Promise((resolve, reject) => {
-        let lastStatus = 'Enviando';
+        let lastStatus = 'Submitting';
         let resolved = false;
         let orderWarning = null; // Store warning if any
         let orderRejection = null; // Store rejection reason if any
@@ -219,7 +219,7 @@ export function useTrade(getClient, isConnected) {
         const onError = (err, data) => {
           if (resolved) return;
 
-          const message = err?.message || 'Error al enviar orden';
+          const message = err?.message || 'Error submitting order';
           const errorId = data?.id;
 
           // Ignore errors for other orders

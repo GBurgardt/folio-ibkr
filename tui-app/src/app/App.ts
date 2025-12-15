@@ -24,16 +24,16 @@ export type Screen =
 
 // Screen name translations
 export const SCREEN_NAMES: Record<Screen, string> = {
-  connecting: 'conectando',
+  connecting: 'connecting',
   error: 'error',
-  portfolio: 'inicio',
-  chart: 'gráfico',
-  buy: 'comprar',
-  sell: 'vender',
-  search: 'buscar',
-  activity: 'actividad',
-  orders: 'órdenes',
-  'order-result': 'resultado',
+  portfolio: 'home',
+  chart: 'chart',
+  buy: 'buy',
+  sell: 'sell',
+  search: 'search',
+  activity: 'activity',
+  orders: 'orders',
+  'order-result': 'result',
 };
 
 export interface AppState {

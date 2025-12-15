@@ -3,30 +3,30 @@ import { Box, Text } from 'ink';
 
 const shortcuts = {
   portfolio: [
-    { key: '↑↓', label: 'Navegar' },
-    { key: 'Enter', label: 'Detalles' },
-    { key: 'b', label: 'Comprar' },
-    { key: '/', label: 'Buscar' },
-    { key: 'g', label: 'Reporte' },
-    { key: 'a', label: 'Actividad' },
-    { key: 'o', label: 'Órdenes', showBadge: true },
-    { key: 'q', label: 'Salir' },
+    { key: '↑↓', label: 'Navigate' },
+    { key: 'Enter', label: 'Details' },
+    { key: 'b', label: 'Buy' },
+    { key: '/', label: 'Search' },
+    { key: 'g', label: 'Report' },
+    { key: 'a', label: 'Activity' },
+    { key: 'o', label: 'Orders', showBadge: true },
+    { key: 'q', label: 'Quit' },
   ],
   chart: [
-    { key: '↑↓', label: 'Período' },
-    { key: 'b', label: 'Comprar' },
-    { key: '←', label: 'Volver' },
+    { key: '↑↓', label: 'Period' },
+    { key: 'b', label: 'Buy' },
+    { key: '←', label: 'Back' },
   ],
   buy: [
-    { key: 'Enter', label: 'Confirmar' },
-    { key: 'Esc', label: 'Cancelar' },
+    { key: 'Enter', label: 'Confirm' },
+    { key: 'Esc', label: 'Cancel' },
   ],
   search: [
-    { key: 'Enter', label: 'Seleccionar' },
-    { key: 'Esc', label: 'Volver' },
+    { key: 'Enter', label: 'Select' },
+    { key: 'Esc', label: 'Back' },
   ],
   confirm: [
-    { key: 'Enter', label: 'Sí' },
+    { key: 'Enter', label: 'Yes' },
     { key: 'Esc', label: 'No' },
   ],
 };

@@ -1,9 +1,9 @@
-require('dotenv').config();
-const ib = require('ib');
-const chalk = require('chalk');
-const ora = require('ora');
-const axios = require('axios');
-const OpenAI = require('openai');
+import 'dotenv/config';
+import ib from 'ib';
+import chalk from 'chalk';
+import ora from 'ora';
+import axios from 'axios';
+import OpenAI from 'openai';
 
 // Configuración OpenAI
 const openai = new OpenAI({
@@ -24,9 +24,9 @@ console.clear();
 console.log(chalk.blue.bold('🤖 Interactive Brokers Trading Bot'));
 console.log(chalk.gray('━'.repeat(50)));
 
-// Fase 1: Búsqueda REAL de noticias tecnológicas
+// Phase 1: Real tech news search
 async function searchTechNews() {
-  const spinner = ora('🔍 Buscando noticias tecnológicas reales...').start();
+  const spinner = ora('🔍 Fetching real tech news...').start();
   
   try {
     // Lista de empresas tech a buscar
@@ -64,12 +64,12 @@ async function searchTechNews() {
           });
         });
       } catch (err) {
-        console.log(chalk.yellow(`  ⚠️  No se pudieron obtener noticias para ${symbol}`));
+        console.log(chalk.yellow(`  ⚠️  Could not fetch news for ${symbol}`));
       }
     }
     
-    spinner.succeed(`✅ Encontradas ${newsItems.length} noticias reales`);
-    console.log(chalk.yellow(`\n📰 Resumen de noticias:`));
+    spinner.succeed(`✅ Found ${newsItems.length} news items`);
+    console.log(chalk.yellow(`\n📰 News summary:`));
     newsItems.slice(0, 5).forEach(news => {
       const color = news.sentiment === 'positive' ? 'green' : news.sentiment === 'negative' ? 'red' : 'gray';
       console.log(chalk[color](`  • ${news.symbol}: ${news.headline.substring(0, 60)}...`));
@@ -77,56 +77,56 @@ async function searchTechNews() {
     
     return newsItems;
   } catch (error) {
-    spinner.fail('❌ Error buscando noticias');
+    spinner.fail('❌ Error fetching news');
     console.error(error.message);
     return [];
   }
 }
 
-// Fase 2: Análisis REAL con GPT-4.5
+// Phase 2: Analysis with GPT-4.5
 async function analyzeWithGPT(newsData, portfolio) {
-  const spinner = ora('🧠 Analizando con GPT-4.5 (REAL)...').start();
+  const spinner = ora('🧠 Analyzing with GPT-4.5...').start();
   
   try {
     // Construir el prompt según el plan
     const portfolioContext = `
-Portfolio actual:
-- Posiciones: ${portfolio.positions.length > 0 ? 
-    portfolio.positions.map(p => `${p.symbol}: ${p.shares} acciones a $${p.avgCost.toFixed(2)}`).join(', ') : 
-    'Ninguna posición abierta'}
-- Efectivo disponible: $${portfolio.cash.toFixed(2)}
-- Valor total del portfolio: $${portfolio.totalValue.toFixed(2)}
+Current portfolio:
+- Positions: ${portfolio.positions.length > 0 ? 
+    portfolio.positions.map(p => `${p.symbol}: ${p.shares} shares @ $${p.avgCost.toFixed(2)}`).join(', ') : 
+    'No open positions'}
+- Available cash: $${portfolio.cash.toFixed(2)}
+- Total portfolio value: $${portfolio.totalValue.toFixed(2)}
 `;
 
     const newsContext = `
-Noticias recientes del sector tecnológico:
+Recent tech news:
 ${newsData.slice(0, 10).map(n => 
-  `- ${n.symbol}: ${n.headline} (Sentimiento: ${n.sentiment}, Impacto: ${n.impact})`
+  `- ${n.symbol}: ${n.headline} (Sentiment: ${n.sentiment}, Impact: ${n.impact})`
 ).join('\n')}
 `;
 
-    const systemPrompt = `Eres un experto analista financiero especializado en el sector tecnológico. 
-Analiza las noticias y el portfolio actual para sugerir UNA SOLA acción de trading conservadora.
-IMPORTANTE: 
-- Solo sugiere comprar si hay efectivo disponible
-- Solo sugiere vender si poseemos la acción
-- Limita las compras a máximo 10% del efectivo disponible
-- Responde ÚNICAMENTE en formato XML exacto`;
+    const systemPrompt = `You are a conservative financial analyst focused on the technology sector.
+Analyze the news and the current portfolio and suggest ONE conservative trading action.
+Important:
+- Only suggest BUY if there is available cash
+- Only suggest SELL if we own the symbol
+- Limit BUY to at most 10% of available cash
+- Respond ONLY using the exact XML format`;
 
     const userPrompt = `${portfolioContext}
 
 ${newsContext}
 
-Basándote en esta información, sugiere UNA SOLA acción de trading.
-Responde ÚNICAMENTE en el siguiente formato XML (sin texto adicional):
+Based on this information, suggest ONE trading action.
+Respond ONLY in the following exact XML format (no extra text):
 
 <trading_decision>
     <action>BUY/SELL/HOLD</action>
     <symbol>SYMBOL</symbol>
     <quantity>NUMBER</quantity>
-    <reasoning>Explicación breve de máximo 50 palabras</reasoning>
+    <reasoning>Brief explanation (max 50 words)</reasoning>
     <confidence>HIGH/MEDIUM/LOW</confidence>
-    <expected_impact>Impacto esperado en una línea</expected_impact>
+    <expected_impact>Expected impact in one line</expected_impact>
 </trading_decision>`;
 
     // Preparar el input para GPT-4.5
@@ -151,7 +151,7 @@ Responde ÚNICAMENTE en el siguiente formato XML (sin texto adicional):
       }
     ];
 
-    console.log(chalk.gray('\n  📤 Enviando a GPT-4.5...'));
+    console.log(chalk.gray('\n  📤 Sending to GPT-4.5...'));
 
     // Llamar a GPT-4.5 con el formato correcto
     const response = await openai.responses.create({
@@ -172,35 +172,35 @@ Responde ÚNICAMENTE en el siguiente formato XML (sin texto adicional):
 
     const responseText = response.output?.[0]?.content?.[0]?.text || "";
     
-    spinner.succeed('✅ Análisis GPT-4.5 completado');
-    console.log(chalk.gray('\n  📥 Respuesta raw:'), responseText.substring(0, 100) + '...');
+    spinner.succeed('✅ GPT-4.5 analysis completed');
+    console.log(chalk.gray('\n  📥 Raw response:'), responseText.substring(0, 100) + '...');
     
     // Parsear la respuesta XML
     const decision = parseDecision(responseText);
     
-    console.log(chalk.cyan('\n🎯 Decisión de trading:'));
-    console.log(chalk.white(`  Acción: ${chalk.bold(decision.action)}`));
-    if (decision.symbol) console.log(chalk.white(`  Símbolo: ${chalk.bold(decision.symbol)}`));
-    if (decision.quantity) console.log(chalk.white(`  Cantidad: ${chalk.bold(decision.quantity)}`));
-    console.log(chalk.gray(`  Confianza: ${decision.confidence}`));
-    console.log(chalk.gray(`  Razón: ${decision.reasoning}`));
+    console.log(chalk.cyan('\n🎯 Trading decision:'));
+    console.log(chalk.white(`  Action: ${chalk.bold(decision.action)}`));
+    if (decision.symbol) console.log(chalk.white(`  Symbol: ${chalk.bold(decision.symbol)}`));
+    if (decision.quantity) console.log(chalk.white(`  Quantity: ${chalk.bold(decision.quantity)}`));
+    console.log(chalk.gray(`  Confidence: ${decision.confidence}`));
+    console.log(chalk.gray(`  Reason: ${decision.reasoning}`));
     
     return decision;
   } catch (error) {
-    spinner.fail('❌ Error en análisis GPT-4.5');
-    console.error(chalk.red('  Error detalle:'), error.message);
-    return { action: 'HOLD', reasoning: 'Error en análisis: ' + error.message };
+    spinner.fail('❌ Error in GPT-4.5 analysis');
+    console.error(chalk.red('  Details:'), error.message);
+    return { action: 'HOLD', reasoning: 'Analysis error: ' + error.message };
   }
 }
 
-// Parsear decisión XML mejorado
+// Parse XML decision
 function parseDecision(xmlText) {
   try {
-    // Extraer solo el contenido XML
+    // Extract only XML
     const xmlMatch = xmlText.match(/<trading_decision>[\s\S]*?<\/trading_decision>/);
     if (!xmlMatch) {
-      console.error(chalk.red('  ❌ No se encontró XML válido en la respuesta'));
-      return { action: 'HOLD', reasoning: 'Formato XML inválido' };
+      console.error(chalk.red('  ❌ No valid XML found in the response'));
+      return { action: 'HOLD', reasoning: 'Invalid XML format' };
     }
     
     const xml = xmlMatch[0];
@@ -212,35 +212,35 @@ function parseDecision(xmlText) {
     const confidence = xml.match(/<confidence>(.*?)<\/confidence>/)?.[1]?.trim() || 'LOW';
     const impact = xml.match(/<expected_impact>(.*?)<\/expected_impact>/)?.[1]?.trim() || '';
     
-    // Validaciones
+    // Validation
     if (!['BUY', 'SELL', 'HOLD'].includes(action)) {
-      console.error(chalk.red(`  ❌ Acción inválida: ${action}`));
-      return { action: 'HOLD', reasoning: 'Acción inválida' };
+      console.error(chalk.red(`  ❌ Invalid action: ${action}`));
+      return { action: 'HOLD', reasoning: 'Invalid action' };
     }
     
     if ((action === 'BUY' || action === 'SELL') && (!symbol || quantity <= 0)) {
-      console.error(chalk.red(`  ❌ Símbolo o cantidad inválida`));
-      return { action: 'HOLD', reasoning: 'Parámetros inválidos' };
+      console.error(chalk.red(`  ❌ Invalid symbol or quantity`));
+      return { action: 'HOLD', reasoning: 'Invalid parameters' };
     }
     
     return { action, symbol, quantity, reasoning, confidence, impact };
   } catch (error) {
-    console.error('Error parseando decisión:', error);
+    console.error('Error parsing decision:', error);
     return { action: 'HOLD', reasoning: 'Error parsing: ' + error.message };
   }
 }
 
-// Fase 3: Ejecutar decisión REAL en Interactive Brokers
+// Phase 3: Execute decision in Interactive Brokers
 async function executeDecision(decision) {
-  console.log(chalk.yellow('\n⚡ Ejecutando decisión en IB...'));
+  console.log(chalk.yellow('\n⚡ Executing decision in IB...'));
   
   if (decision.action === 'HOLD') {
-    console.log(chalk.blue('  ✅ Manteniendo posiciones actuales'));
+    console.log(chalk.blue('  ✅ Holding current positions'));
     return;
   }
   
   if (!nextOrderId) {
-    console.error(chalk.red('  ❌ No hay Order ID disponible'));
+    console.error(chalk.red('  ❌ No Order ID available'));
     return;
   }
   
@@ -249,7 +249,7 @@ async function executeDecision(decision) {
       // Verificar fondos disponibles
       const estimatedCost = decision.quantity * 150; // Precio estimado
       if (estimatedCost > portfolio.cash) {
-        console.log(chalk.red(`  ❌ Fondos insuficientes. Necesario: $${estimatedCost.toFixed(2)}, Disponible: $${portfolio.cash.toFixed(2)}`));
+        console.log(chalk.red(`  ❌ Insufficient funds. Needed: $${estimatedCost.toFixed(2)}, Available: $${portfolio.cash.toFixed(2)}`));
         return;
       }
       
@@ -259,7 +259,7 @@ async function executeDecision(decision) {
       // Crear orden de compra
       const order = ib.order.market(decision.action, decision.quantity);
       
-      console.log(chalk.green(`  📈 Enviando orden de COMPRA: ${decision.quantity} ${decision.symbol}`));
+      console.log(chalk.green(`  📈 Submitting BUY order: ${decision.quantity} ${decision.symbol}`));
       
       // Colocar orden REAL
       ibClient.placeOrder(nextOrderId, contract, order);
@@ -267,7 +267,7 @@ async function executeDecision(decision) {
       // Escuchar confirmación
       ibClient.on('orderStatus', (orderId, status, filled, remaining, avgFillPrice) => {
         if (orderId === nextOrderId) {
-          console.log(chalk.green(`  ✅ Orden ${orderId}: ${status} - Ejecutadas: ${filled}/${decision.quantity} @ $${avgFillPrice}`));
+          console.log(chalk.green(`  ✅ Order ${orderId}: ${status} - Filled: ${filled}/${decision.quantity} @ $${avgFillPrice}`));
         }
       });
       
@@ -277,7 +277,7 @@ async function executeDecision(decision) {
       // Verificar que tenemos la posición
       const position = portfolio.positions.find(p => p.symbol === decision.symbol);
       if (!position || position.shares < decision.quantity) {
-        console.log(chalk.red(`  ❌ No tienes suficientes acciones de ${decision.symbol}`));
+        console.log(chalk.red(`  ❌ Not enough shares of ${decision.symbol}`));
         return;
       }
       
@@ -285,7 +285,7 @@ async function executeDecision(decision) {
       const contract = ib.contract.stock(decision.symbol, 'SMART', 'USD');
       const order = ib.order.market(decision.action, decision.quantity);
       
-      console.log(chalk.red(`  📉 Enviando orden de VENTA: ${decision.quantity} ${decision.symbol}`));
+      console.log(chalk.red(`  📉 Submitting SELL order: ${decision.quantity} ${decision.symbol}`));
       
       // Colocar orden REAL
       ibClient.placeOrder(nextOrderId, contract, order);
@@ -293,7 +293,7 @@ async function executeDecision(decision) {
       // Escuchar confirmación
       ibClient.on('orderStatus', (orderId, status, filled, remaining, avgFillPrice) => {
         if (orderId === nextOrderId) {
-          console.log(chalk.red(`  ✅ Orden ${orderId}: ${status} - Vendidas: ${filled}/${decision.quantity} @ $${avgFillPrice}`));
+          console.log(chalk.red(`  ✅ Order ${orderId}: ${status} - Sold: ${filled}/${decision.quantity} @ $${avgFillPrice}`));
         }
       });
       
@@ -301,13 +301,13 @@ async function executeDecision(decision) {
     }
     
   } catch (error) {
-    console.error(chalk.red('  ❌ Error ejecutando orden:'), error.message);
+    console.error(chalk.red('  ❌ Error executing order:'), error.message);
   }
 }
 
-// Conectar a IB y obtener portfolio REAL
+// Connect to IB and fetch portfolio
 async function connectAndGetPortfolio() {
-  const spinner = ora('📊 Conectando a Interactive Brokers...').start();
+  const spinner = ora('📊 Connecting to Interactive Brokers...').start();
   
   return new Promise((resolve) => {
     ibClient = new ib({
@@ -330,9 +330,9 @@ async function connectAndGetPortfolio() {
     });
 
     ibClient.on('nextValidId', (orderId) => {
-      spinner.succeed('✅ Conectado a IB');
+      spinner.succeed('✅ Connected to IB');
       nextOrderId = orderId;
-      console.log(chalk.gray(`  Order ID inicial: ${nextOrderId}`));
+      console.log(chalk.gray(`  Initial Order ID: ${nextOrderId}`));
       
       // Solicitar datos REALES del portfolio
       ibClient.reqAccountSummary(1, 'All', 'TotalCashValue,NetLiquidation');
@@ -340,10 +340,10 @@ async function connectAndGetPortfolio() {
       
       // Esperar a que lleguen los datos
       setTimeout(() => {
-        console.log(chalk.green('\n💼 Portfolio actual:'));
-        console.log(`  Efectivo: $${portfolio.cash.toFixed(2)}`);
-        console.log(`  Valor total: $${portfolio.totalValue.toFixed(2)}`);
-        console.log(`  Posiciones: ${portfolio.positions.length}`);
+        console.log(chalk.green('\n💼 Current portfolio:'));
+        console.log(`  Cash: $${portfolio.cash.toFixed(2)}`);
+        console.log(`  Total value: $${portfolio.totalValue.toFixed(2)}`);
+        console.log(`  Positions: ${portfolio.positions.length}`);
         resolve();
       }, 3000);
     });
@@ -383,7 +383,7 @@ async function connectAndGetPortfolio() {
 
 // Ciclo principal del bot
 async function runTradingCycle() {
-  console.log(chalk.blue.bold(`\n🔄 Iniciando ciclo de trading - ${new Date().toLocaleTimeString()}`));
+  console.log(chalk.blue.bold(`\n🔄 Starting trading cycle - ${new Date().toLocaleTimeString()}`));
   console.log(chalk.gray('━'.repeat(50)));
   
   try {
@@ -398,7 +398,7 @@ async function runTradingCycle() {
     const news = await searchTechNews();
     
     if (news.length === 0) {
-      console.log(chalk.yellow('⚠️  No hay noticias disponibles en este ciclo'));
+      console.log(chalk.yellow('⚠️  No news available in this cycle'));
       return;
     }
     
@@ -409,10 +409,10 @@ async function runTradingCycle() {
     await executeDecision(decision);
     
     // Log del ciclo completado
-    console.log(chalk.green('\n✅ Ciclo completado exitosamente'));
+    console.log(chalk.green('\n✅ Cycle completed'));
     
   } catch (error) {
-    console.error(chalk.red('\n❌ Error en ciclo de trading:'), error.message);
+    console.error(chalk.red('\n❌ Trading cycle error:'), error.message);
   }
   
   console.log(chalk.gray('\n' + '━'.repeat(50)));
@@ -420,30 +420,35 @@ async function runTradingCycle() {
 
 // Main
 async function main() {
-  console.log(chalk.yellow('\n⚡ Iniciando Trading Bot...'));
+  console.log(chalk.yellow('\n⚡ Starting Trading Bot...'));
   
   // Verificar API key
-  if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'tu_api_key_aqui') {
-    console.error(chalk.red('\n❌ ERROR: Configura tu OPENAI_API_KEY en el archivo .env'));
+  if (
+    !process.env.OPENAI_API_KEY ||
+    process.env.OPENAI_API_KEY === 'tu_api_key_aqui' ||
+    process.env.OPENAI_API_KEY === 'your_api_key_here' ||
+    process.env.OPENAI_API_KEY === 'your_key_here'
+  ) {
+    console.error(chalk.red('\n❌ ERROR: Set OPENAI_API_KEY in .env'));
     process.exit(1);
   }
   
   // Conectar a IB
   await connectAndGetPortfolio();
   
-  // Ejecutar primer ciclo inmediatamente
+  // Run first cycle immediately
   await runTradingCycle();
   
-  // Configurar ciclo cada 2 minutos
-  console.log(chalk.cyan('\n🔄 Bot configurado para ejecutarse cada 2 minutos'));
-  console.log(chalk.gray('Presiona Ctrl+C para detener\n'));
+  // Schedule cycle every 2 minutes
+  console.log(chalk.cyan('\n🔄 Bot scheduled to run every 2 minutes'));
+  console.log(chalk.gray('Press Ctrl+C to stop\n'));
   
   setInterval(runTradingCycle, 2 * 60 * 1000); // 2 minutos
 }
 
 // Manejo de cierre graceful
 process.on('SIGINT', () => {
-  console.log(chalk.yellow('\n\n👋 Deteniendo Trading Bot...'));
+  console.log(chalk.yellow('\n\n👋 Stopping Trading Bot...'));
   if (ibClient) {
     ibClient.disconnect();
   }

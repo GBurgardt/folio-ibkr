@@ -139,7 +139,7 @@ export function usePortfolio(getClient, isConnected, accountId) {
 
     const timeout = setTimeout(() => {
       debug('TIMEOUT fetching portfolio');
-      setError('Timeout obteniendo datos del portfolio');
+      setError('Timeout fetching portfolio data');
       setLoading(false);
       cleanup();
     }, 15000);

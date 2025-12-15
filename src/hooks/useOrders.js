@@ -119,7 +119,7 @@ export function useOrders(getClient, isConnected) {
     return new Promise((resolve, reject) => {
       const client = getClient();
       if (!client || !isConnected) {
-        reject(new Error('No conectado'));
+        reject(new Error('Not connected'));
         return;
       }
 
@@ -127,7 +127,7 @@ export function useOrders(getClient, isConnected) {
 
       const timeout = setTimeout(() => {
         cleanup();
-        reject(new Error('Timeout cancelando orden'));
+        reject(new Error('Timeout cancelling order'));
       }, 10000);
 
       const onOrderStatus = (id, status) => {
@@ -148,7 +148,7 @@ export function useOrders(getClient, isConnected) {
       const onError = (err, data) => {
         if (data?.id === orderId) {
           cleanup();
-          reject(new Error(err?.message || 'Error cancelando orden'));
+          reject(new Error(err?.message || 'Error cancelling order'));
         }
       };
 

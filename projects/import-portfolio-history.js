@@ -114,7 +114,7 @@ async function main() {
     const fromAll = extractFromPaAllPeriods(json, args.account, args.period);
     const series = fromPerf || fromAll;
     if (!series) {
-      throw new Error('No pude encontrar una serie NAV en el JSON (esperaba /pa/performance o /pa/allperiods).');
+      throw new Error('Could not find a NAV series in the JSON (expected /pa/performance or /pa/allperiods).');
     }
     for (const p of series) {
       const ts = tsFromYyyymmdd(String(p.date));
@@ -136,13 +136,13 @@ async function main() {
 
   points.sort((a, b) => a.ts - b.ts);
   if (points.length === 0) {
-    throw new Error('No se importó ningún punto (archivo vacío o formato incorrecto).');
+    throw new Error('No points imported (empty file or invalid format).');
   }
 
   const outPath = portfolioHistoryPath(args.account);
-  console.log(`Importando ${points.length} puntos → ${outPath}`);
+  console.log(`Importing ${points.length} points → ${outPath}`);
   if (args.dryRun) {
-    console.log('dry-run: no escribo nada.');
+    console.log('dry-run: nothing written.');
     return;
   }
 
@@ -156,4 +156,3 @@ main().catch((e) => {
   console.error('ERROR:', e?.message || e);
   process.exit(1);
 });
-

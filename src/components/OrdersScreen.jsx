@@ -76,7 +76,7 @@ export function OrdersScreen({
   if (!loading && (!orders || orders.length === 0)) {
     return (
       <Box flexDirection="column" padding={1}>
-        <Text color="gray">Sin órdenes pendientes</Text>
+        <Text color="gray">No pending orders</Text>
       </Box>
     );
   }
@@ -85,7 +85,7 @@ export function OrdersScreen({
   if (loading && (!orders || orders.length === 0)) {
     return (
       <Box flexDirection="column" padding={1}>
-        <Text color="gray">Cargando órdenes...</Text>
+        <Text color="gray">Loading orders...</Text>
       </Box>
     );
   }
@@ -111,18 +111,18 @@ export function OrdersScreen({
           <>
             <Box>
               <Text color="red">Enter </Text>
-              <Text color="white">confirmar cancelación</Text>
+              <Text color="white">confirm cancel</Text>
             </Box>
           </>
         ) : (
           <>
             <Box>
               <Text color="gray">Enter </Text>
-              <Text color="white">gráfico</Text>
+              <Text color="white">chart</Text>
             </Box>
             <Box>
               <Text color="gray">c </Text>
-              <Text color="white">cancelar</Text>
+              <Text color="white">cancel</Text>
             </Box>
           </>
         )}
@@ -178,8 +178,8 @@ function OrderRow({ order, price, isSelected, isConfirmingCancel }) {
       </Text>
 
       {/* Cancel confirmation */}
-      {isConfirmingCancel && (
-        <Text color="red" dimColor>  ← cancelar?</Text>
+  {isConfirmingCancel && (
+        <Text color="red" dimColor>  ← cancel?</Text>
       )}
     </Box>
   );

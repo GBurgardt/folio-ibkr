@@ -11,10 +11,10 @@ const debug = (...args) => {
 };
 
 const PORTFOLIO_PERIODS = {
-  '1M': { kind: 'months', n: 1, label: '1 mes' },
-  '6M': { kind: 'months', n: 6, label: '6 meses' },
-  '1Y': { kind: 'years', n: 1, label: '1 año' },
-  'ALL': { kind: 'all', n: null, label: 'desde inicio' },
+  '1M': { kind: 'months', n: 1, label: '1m' },
+  '6M': { kind: 'months', n: 6, label: '6m' },
+  '1Y': { kind: 'years', n: 1, label: '1y' },
+  'ALL': { kind: 'all', n: null, label: 'all time' },
 };
 // Small -> big (↓ zoom in, ↑ zoom out)
 const PORTFOLIO_PERIOD_KEYS = ['1M', '6M', '1Y', 'ALL'];
@@ -69,7 +69,7 @@ function formatDateForAxis(date, periodKey, startTs, endTs) {
     return String(date.getFullYear());
   }
 
-  const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const y = String(date.getFullYear()).slice(-2);
   if (rangeMs >= 120 * 24 * 60 * 60 * 1000) {
     return `${months[date.getMonth()]} '${y}`;
@@ -327,8 +327,8 @@ export function PortfolioReportScreen({
     return (
       <Box flexDirection="column" padding={1}>
         <Box justifyContent="space-between">
-          <Text bold color="white">portafolio</Text>
-          <Text color="gray">cargando...</Text>
+          <Text bold color="white">portfolio</Text>
+          <Text color="gray">loading...</Text>
         </Box>
       </Box>
     );
@@ -337,9 +337,9 @@ export function PortfolioReportScreen({
   if (!chartData || !chartRender) {
     return (
       <Box flexDirection="column" padding={1}>
-        <Text bold color="white">portafolio</Text>
+        <Text bold color="white">portfolio</Text>
         <Box marginTop={1}>
-          <Text color="gray">Sin datos</Text>
+          <Text color="gray">No data</Text>
         </Box>
       </Box>
     );
@@ -359,7 +359,7 @@ export function PortfolioReportScreen({
       {/* ═══ HEADER: Title + Value + Period + Change ═══ */}
       <Box justifyContent="space-between">
         <Box>
-          <Text bold color="white">portafolio</Text>
+          <Text bold color="white">portfolio</Text>
           <Text color="gray">  </Text>
           <Text bold color="white">{formatMoney(chartData.last)}</Text>
           <Text color="gray">  </Text>
@@ -375,7 +375,7 @@ export function PortfolioReportScreen({
       {/* ═══ CONTEXT LINE: Range ═══ */}
       <Box justifyContent="space-between" marginBottom={0}>
         <Text color="gray">
-          rango: {formatMoney(minValue)} — {formatMoney(maxValue)}
+          range: {formatMoney(minValue)} — {formatMoney(maxValue)}
         </Text>
       </Box>
 
@@ -388,8 +388,8 @@ export function PortfolioReportScreen({
 
       {/* ═══ FOOTER: Controls + Legend ═══ */}
       <Box marginTop={1} justifyContent="space-between">
-        <Text color="gray">↑↓ período</Text>
-        <Text color="gray">▲ ingreso  ▼ egreso</Text>
+        <Text color="gray">↑↓ period</Text>
+        <Text color="gray">▲ inflow  ▼ outflow</Text>
       </Box>
     </Box>
   );
