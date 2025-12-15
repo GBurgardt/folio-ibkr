@@ -23,32 +23,33 @@ global.debug = debug;
 
 if (showHelp) {
   console.log(`
-  Folio - Interactive Brokers Portfolio Manager
+  Folio — Interactive Brokers Portfolio Manager (TUI)
 
   Usage:
-    npm start           Conectar a cuenta REAL (puerto 7496)
-    npm start -- --paper    Conectar a cuenta PAPER (puerto 7497)
+    npm start                 Connect to LIVE (port 7496)
+    npm start -- --paper      Connect to PAPER (port 7497)
+    npx tsx src/index.jsx     Run directly (dev)
 
-  Opciones:
-    --paper, -p    Usar paper trading (puerto 7497)
-    --debug, -d    Modo debug con logs detallados
-    --help, -h     Mostrar esta ayuda
+  Options:
+    --paper, -p    Use paper trading (port 7497)
+    --debug, -d    Debug logs
+    --help, -h     Show help
 
-  Navegación:
-    ↑↓         Navegar posiciones
-    Enter      Ver detalle de posición
-    b          Comprar
-    s          Vender (en detalle)
-    /          Buscar símbolo
-    g          Reporte de portafolio
-    r          Refrescar datos
-    Esc        Volver
-    q          Salir
+  Navigation:
+    ↑↓         Move selection
+    Enter      Open position details
+    b          Buy
+    s          Sell (in details)
+    /          Search symbol
+    g          Portfolio report
+    r          Refresh
+    Esc        Back
+    q          Quit
 
-  Requisitos:
-    - TWS o IB Gateway abierto
-    - API habilitada en Settings > API
-    - Puerto 7496 (live) o 7497 (paper)
+  Requirements:
+    - TWS or IB Gateway running
+    - API enabled (Settings > API)
+    - Port 7496 (live) or 7497 (paper)
   `);
   process.exit(0);
 }
@@ -56,12 +57,12 @@ if (showHelp) {
 // Check if terminal supports interactive mode
 if (!process.stdin.isTTY) {
   console.log(`
-  Este CLI necesita ejecutarse en una terminal interactiva.
+  This CLI must run in an interactive terminal (TTY).
 
-  Ejecutá directamente:
+  Run:
     npx tsx src/index.jsx
 
-  O:
+  Or:
     npm start
   `);
   process.exit(1);

@@ -2,6 +2,11 @@
   "name": "folio",
   "version": "2.0.0",
   "description": "Beautiful Interactive Brokers portfolio manager",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GBurgardt/interactive_brokers.git"
+  },
   "type": "module",
   "main": "src/index.jsx",
   "bin": {

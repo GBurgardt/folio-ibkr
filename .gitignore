@@ -6,6 +6,10 @@ node_modules/
 .env.local
 .env.*.local
 
+# Local / user-specific
+deploy.local.sh
+server/favorites.json
+
 # IDE
 .vscode/
 .idea/
@@ -34,3 +38,6 @@ yarn-error.log*
 # OS
 Thumbs.db
 *.pem
+
+# TLS certs (generated locally by `npm run server:setup`)
+server/certs/

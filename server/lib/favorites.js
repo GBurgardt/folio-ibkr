@@ -1,7 +1,8 @@
 /**
  * Carga la lista de favoritos (watchlist)
  *
- * Los favoritos se definen en server/favorites.json
+ * Los favoritos se definen en `server/favorites.json` (local, no se commitea).
+ * En el repo se incluye `server/favorites.example.json` como referencia.
  * Es un simple array de símbolos.
  */
 
@@ -11,6 +12,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FAVORITES_FILE = path.join(__dirname, '..', 'favorites.json');
+const FAVORITES_EXAMPLE_FILE = path.join(__dirname, '..', 'favorites.example.json');
 
 // Favoritos por defecto si no existe el archivo
 const DEFAULT_FAVORITES = ['NVDA', 'AMD', 'MSFT', 'GOOGL', 'AMZN'];
@@ -32,15 +34,22 @@ export function loadFavorites() {
     console.log('[FAVORITES] Error cargando favoritos:', err.message);
   }
 
-  // Crear archivo por defecto
+  // Crear archivo por defecto (desde el ejemplo si existe)
+  let seed = DEFAULT_FAVORITES;
   try {
-    fs.writeFileSync(FAVORITES_FILE, JSON.stringify(DEFAULT_FAVORITES, null, 2));
+    if (fs.existsSync(FAVORITES_EXAMPLE_FILE)) {
+      const example = JSON.parse(fs.readFileSync(FAVORITES_EXAMPLE_FILE, 'utf-8'));
+      if (Array.isArray(example) && example.length > 0) {
+        seed = example;
+      }
+    }
+    fs.writeFileSync(FAVORITES_FILE, JSON.stringify(seed, null, 2));
     console.log('[FAVORITES] Archivo de favoritos creado con valores por defecto');
   } catch (err) {
     // Ignorar
   }
 
-  return DEFAULT_FAVORITES;
+  return seed.map(s => String(s).toUpperCase());
 }
 
 /**

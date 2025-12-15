@@ -1,41 +1,126 @@
+# Folio
 
-# Interactive Brokers API - Conexión Mínima
+Interactive Brokers portfolio manager for the terminal (TUI), plus an optional mobile dashboard.
 
-Script mínimo para conectarse a Interactive Brokers y obtener información básica de la cuenta.
+- Live + paper trading (`7496` / `7497`)
+- Positions, P&L, executions, pending orders
+- Buy / sell (market orders)
+- Local history persisted to `~/.folio/`
+- Optional HTTPS + PWA mobile dashboard (`npm run server`)
 
-## Requisitos
+## Screenshots
 
-1. **TWS (Trader Workstation) o IB Gateway** instalado y ejecutándose
-2. **Configurar API en TWS:**
-   - File → Global Configuration → API → Settings
-   - Habilitar "Enable ActiveX and Socket Clients"
-   - Puerto 7497 para paper trading, 7496 para live trading
+Drop your screenshots here (placeholders):
 
-## Instalación
+- `docs/screenshots/tui.png`
+- `docs/screenshots/mobile.png`
+
+```text
+docs/screenshots/tui.png
+docs/screenshots/mobile.png
+```
+
+Once you add them, they’ll render here:
+
+![Folio TUI](docs/screenshots/tui.png)
+![Folio Mobile](docs/screenshots/mobile.png)
+
+## Requirements
+
+- Node.js 18+
+- TWS (Trader Workstation) or IB Gateway running
+- TWS: API enabled at `Settings → API → Settings`
+  - Enable: `Enable ActiveX and Socket Clients`
+  - Ports: `7496` (live) / `7497` (paper)
+
+## Install
 
 ```bash
+git clone https://github.com/GBurgardt/interactive_brokers.git
+cd interactive_brokers
 npm install
 ```
 
-## Uso
+## Run (TUI)
 
 ```bash
 npm start
 ```
 
-## Lo que hace el script
+Paper account:
 
-1. Se conecta a TWS en localhost:7497
-2. Obtiene las cuentas disponibles
-3. Solicita información básica de la cuenta (tipo, liquidez neta, efectivo total)
-4. Muestra la información y se desconecta
+```bash
+npm start -- --paper
+```
 
-## Configuración de TWS
+Debug logs:
 
-Antes de ejecutar el script, asegúrate de:
+```bash
+npm start -- --debug
+```
 
-1. Abrir TWS o IB Gateway
-2. Ir a File → Global Configuration → API → Settings
-3. Marcar "Enable ActiveX and Socket Clients"
-4. Verificar que el puerto sea 7497 (paper) o 7496 (live)
-5. Opcionalmente agregar "127.0.0.1" en "Trusted IPs"
+Help:
+
+```bash
+npx tsx src/index.jsx --help
+```
+
+Optional: install as a local command (`folio` / `ib`):
+
+```bash
+npm link
+folio --paper
+```
+
+## Configure
+
+Defaults work out of the box (localhost + standard IB ports). Optional env vars:
+
+```bash
+cp .env.example .env
+```
+
+Useful variables:
+
+- `IB_HOST` (default `127.0.0.1`)
+- `IB_PORT` (default `7496`)
+- `IB_CLIENT_ID` (default `0`)
+
+## Mobile dashboard (optional)
+
+This runs an HTTPS server + PWA and connects to IB with a separate `clientId` to avoid conflicts.
+
+Generate a local certificate:
+
+```bash
+npm run server:setup
+```
+
+Run the server:
+
+```bash
+npm run server
+```
+
+Watchlist:
+
+- Edit `server/favorites.json` (auto-created on first run from `server/favorites.example.json`)
+
+## Troubleshooting
+
+Quick connection diagnostic:
+
+```bash
+npm run diagnose
+```
+
+Common issues:
+
+- TWS API not enabled or wrong port
+- Another app is already connected using the same `IB_CLIENT_ID`
+- TWS shows a “socket client” approval prompt you must accept
+
+## Notes / disclaimer
+
+- Not affiliated with Interactive Brokers.
+- This tool can place orders. Use paper first. You are responsible for what you run.
