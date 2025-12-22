@@ -54,9 +54,9 @@ function formatDateLabel(date, periodKey) {
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const y = String(date.getFullYear()).slice(-2);
 
-  // Para periodos cortos, mostrar día + mes
+  // Para periodos cortos (1M), mostrar día + mes abreviado
   if (periodKey === '1M') {
-    return `${date.getDate()} ${months[date.getMonth()]}`;
+    return `${date.getDate()}${months[date.getMonth()].slice(0, 3)}`;
   }
 
   // Para periodos largos, mostrar mes + año
@@ -64,35 +64,64 @@ function formatDateLabel(date, periodKey) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// GENERADOR DE EJE X MINIMALISTA (SOLO 2 FECHAS)
+// GENERADOR DE EJE X CON 5 FECHAS Y LÍNEA DE TICKS
 // ═══════════════════════════════════════════════════════════════
-function generateSimpleXAxis(dates, chartWidth, periodKey) {
+function generateXAxis(dates, chartWidth, periodKey) {
   if (!dates || dates.length === 0 || chartWidth <= 0) {
-    return { line: '' };
+    return { ticksLine: '', labelsLine: '' };
   }
 
-  const firstDate = dates[0];
-  const lastDate = dates[dates.length - 1];
-
-  const firstLabel = formatDateLabel(firstDate, periodKey);
-  const lastLabel = formatDateLabel(lastDate, periodKey);
-
-  // Construir línea con fechas en los extremos
   const totalWidth = chartWidth + Y_AXIS_PADDING;
-  const chars = new Array(totalWidth).fill(' ');
 
-  // Fecha inicial (después del padding del eje Y)
-  for (let i = 0; i < firstLabel.length && Y_AXIS_PADDING + i < totalWidth; i++) {
-    chars[Y_AXIS_PADDING + i] = firstLabel[i];
+  // 5 etiquetas: inicio, 25%, 50%, 75%, fin
+  const numLabels = 5;
+  const labelPositions = [];
+
+  for (let i = 0; i < numLabels; i++) {
+    const frac = i / (numLabels - 1);
+    const dataIndex = Math.floor(frac * (dates.length - 1));
+    const charPosition = Math.floor(frac * (chartWidth - 1));
+    labelPositions.push({
+      position: charPosition,
+      date: dates[dataIndex],
+    });
   }
 
-  // Fecha final (alineada a la derecha)
-  const lastStart = totalWidth - lastLabel.length;
-  for (let i = 0; i < lastLabel.length; i++) {
-    chars[lastStart + i] = lastLabel[i];
+  // Línea de ticks: ─────┬─────┬─────┬─────┬─────
+  const ticksChars = new Array(totalWidth).fill(' ');
+  for (let x = 0; x < chartWidth; x++) {
+    ticksChars[Y_AXIS_PADDING + x] = '─';
+  }
+  for (const { position } of labelPositions) {
+    ticksChars[Y_AXIS_PADDING + position] = '┬';
   }
 
-  return { line: chars.join('') };
+  // Línea de etiquetas
+  const labelsChars = new Array(totalWidth).fill(' ');
+  for (let i = 0; i < labelPositions.length; i++) {
+    const { position, date } = labelPositions[i];
+    const labelText = formatDateLabel(date, periodKey);
+    const startPos = Y_AXIS_PADDING + position;
+
+    // Ajustar posición para que no se salga
+    let adjustedStart = startPos;
+    if (i === 0) {
+      adjustedStart = Y_AXIS_PADDING;
+    } else if (i === labelPositions.length - 1) {
+      adjustedStart = Math.max(Y_AXIS_PADDING, totalWidth - labelText.length);
+    } else {
+      adjustedStart = Math.max(Y_AXIS_PADDING, startPos - Math.floor(labelText.length / 2));
+    }
+
+    for (let j = 0; j < labelText.length && adjustedStart + j < totalWidth; j++) {
+      labelsChars[adjustedStart + j] = labelText[j];
+    }
+  }
+
+  return {
+    ticksLine: ticksChars.join(''),
+    labelsLine: labelsChars.join(''),
+  };
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -110,32 +139,40 @@ export function PortfolioReportScreen({
   const innerWidth = Math.max(0, terminalWidth - 2);
   const chartWidth = Math.max(20, innerWidth - Y_AXIS_PADDING);
 
-  // ALTURA DEL GRÁFICO: 45% de la terminal (más protagonismo)
-  // Mínimo 8 líneas, máximo 16 líneas
-  const chartHeight = Math.min(16, Math.max(8, Math.floor(terminalHeight * 0.45)));
+  // ALTURA DEL GRÁFICO: 25% de la terminal (más compacto)
+  // Mínimo 6 líneas, máximo 10 líneas
+  const chartHeight = Math.min(10, Math.max(6, Math.floor(terminalHeight * 0.25)));
 
   debug(`Terminal: ${terminalWidth}x${terminalHeight}, Chart: ${chartWidth}x${chartHeight}`);
+  debug(`Selected period: ${selectedPeriod}`);
 
   // ═══════════════════════════════════════════════════════════════
-  // INPUT: Solo Esc para volver, ↑↓ para cambiar periodo
-  // Sin instrucciones visibles - el usuario descubre
+  // INPUT: Esc para volver, ↑↓ para cambiar periodo
   // ═══════════════════════════════════════════════════════════════
   useInput((input, key) => {
+    debug(`Input received: input="${input}", key=${JSON.stringify(key)}`);
+
     if (key.escape) {
       debug('Navigating back');
       onBack?.();
     } else if (key.upArrow) {
-      const i = PORTFOLIO_PERIOD_KEYS.indexOf(selectedPeriod);
-      if (i < PORTFOLIO_PERIOD_KEYS.length - 1) {
-        debug(`Period up: ${selectedPeriod} -> ${PORTFOLIO_PERIOD_KEYS[i + 1]}`);
-        setSelectedPeriod(PORTFOLIO_PERIOD_KEYS[i + 1]);
-      }
+      setSelectedPeriod(prev => {
+        const i = PORTFOLIO_PERIOD_KEYS.indexOf(prev);
+        if (i < PORTFOLIO_PERIOD_KEYS.length - 1) {
+          debug(`Period up: ${prev} -> ${PORTFOLIO_PERIOD_KEYS[i + 1]}`);
+          return PORTFOLIO_PERIOD_KEYS[i + 1];
+        }
+        return prev;
+      });
     } else if (key.downArrow) {
-      const i = PORTFOLIO_PERIOD_KEYS.indexOf(selectedPeriod);
-      if (i > 0) {
-        debug(`Period down: ${selectedPeriod} -> ${PORTFOLIO_PERIOD_KEYS[i - 1]}`);
-        setSelectedPeriod(PORTFOLIO_PERIOD_KEYS[i - 1]);
-      }
+      setSelectedPeriod(prev => {
+        const i = PORTFOLIO_PERIOD_KEYS.indexOf(prev);
+        if (i > 0) {
+          debug(`Period down: ${prev} -> ${PORTFOLIO_PERIOD_KEYS[i - 1]}`);
+          return PORTFOLIO_PERIOD_KEYS[i - 1];
+        }
+        return prev;
+      });
     }
   });
 
@@ -214,10 +251,10 @@ export function PortfolioReportScreen({
   }, [sampled.values, chartHeight, chartData]);
 
   // ═══════════════════════════════════════════════════════════════
-  // EJE X SIMPLE
+  // EJE X
   // ═══════════════════════════════════════════════════════════════
   const xAxis = useMemo(() => {
-    return generateSimpleXAxis(sampled.dates, chartWidth, selectedPeriod);
+    return generateXAxis(sampled.dates, chartWidth, selectedPeriod);
   }, [sampled.dates, chartWidth, selectedPeriod]);
 
   // ═══════════════════════════════════════════════════════════════
@@ -249,7 +286,7 @@ export function PortfolioReportScreen({
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // RENDER PRINCIPAL - DISEÑO APPLE-STYLE
+  // RENDER PRINCIPAL
   // ═══════════════════════════════════════════════════════════════
 
   const isPositive = chartData.change >= 0;
@@ -258,25 +295,39 @@ export function PortfolioReportScreen({
 
   return (
     <Box flexDirection="column" padding={1}>
-      {/* ═══ HEADER: Una sola línea. Valor + Cambio + Periodo ═══ */}
+      {/* ═══ HEADER: Valor + Cambio ═══ */}
       <Box>
         <Text bold color="white">{formatMoney(chartData.last)}</Text>
         <Text color="gray">   </Text>
         <Text color={changeColor} bold>
           {changeSign}{formatMoney(chartData.change)} ({formatPercent(Math.abs(chartData.changePercent))})
         </Text>
-        <Text color="gray">   </Text>
-        <Text dimColor>{PORTFOLIO_PERIODS[selectedPeriod].label}</Text>
       </Box>
 
-      {/* ═══ GRÁFICO: El protagonista ═══ */}
+      {/* ═══ SELECTOR DE PERIODO ═══ */}
+      <Box marginTop={1}>
+        {PORTFOLIO_PERIOD_KEYS.map((key, i) => (
+          <Box key={key}>
+            {i > 0 && <Text color="gray">  </Text>}
+            {key === selectedPeriod ? (
+              <Text color="cyan" bold>[{PORTFOLIO_PERIODS[key].label}]</Text>
+            ) : (
+              <Text color="gray">{PORTFOLIO_PERIODS[key].label}</Text>
+            )}
+          </Box>
+        ))}
+        <Text color="gray" dimColor>   ↑↓</Text>
+      </Box>
+
+      {/* ═══ GRÁFICO ═══ */}
       <Box flexDirection="column" marginTop={1}>
         <Text>{chartRender}</Text>
       </Box>
 
-      {/* ═══ EJE X: Solo fecha inicio y fin ═══ */}
-      <Box>
-        <Text color="gray">{xAxis.line}</Text>
+      {/* ═══ EJE X: Línea de ticks + fechas ═══ */}
+      <Box flexDirection="column">
+        <Text color="gray">{xAxis.ticksLine}</Text>
+        <Text color="gray">{xAxis.labelsLine}</Text>
       </Box>
     </Box>
   );
