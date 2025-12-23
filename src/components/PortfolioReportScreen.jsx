@@ -47,7 +47,6 @@ function formatCompact(value) {
 
 // ═══════════════════════════════════════════════════════════════
 // FORMATO DE FECHA PARA EJE X
-// Adapta el formato según el RANGO REAL de los datos, no el periodo
 // ═══════════════════════════════════════════════════════════════
 function formatDateLabel(date, rangeDays) {
   if (!date) return '';
@@ -57,22 +56,17 @@ function formatDateLabel(date, rangeDays) {
   const d = date.getDate();
   const m = months[date.getMonth()];
 
-  // Rango < 60 días: mostrar día + mes (ej: "15 Dec")
   if (rangeDays < 60) {
     return `${d} ${m}`;
   }
-
-  // Rango < 365 días: mostrar día + mes abreviado (ej: "15Dec")
   if (rangeDays < 365) {
     return `${d}${m.slice(0, 3)}`;
   }
-
-  // Rango >= 1 año: mostrar mes + año (ej: "Dec '25")
   return `${m} '${y}`;
 }
 
 // ═══════════════════════════════════════════════════════════════
-// GENERADOR DE EJE X CON 7 FECHAS Y LÍNEA DE TICKS
+// GENERADOR DE EJE X CON 7 FECHAS
 // ═══════════════════════════════════════════════════════════════
 function generateXAxis(dates, chartWidth) {
   if (!dates || dates.length === 0 || chartWidth <= 0) {
@@ -80,13 +74,10 @@ function generateXAxis(dates, chartWidth) {
   }
 
   const totalWidth = chartWidth + Y_AXIS_PADDING;
-
-  // Calcular el rango real en días
   const firstDate = dates[0];
   const lastDate = dates[dates.length - 1];
   const rangeDays = Math.max(1, Math.ceil((lastDate - firstDate) / (1000 * 60 * 60 * 24)));
 
-  // 7 etiquetas distribuidas uniformemente
   const numLabels = 7;
   const labelPositions = [];
 
@@ -100,7 +91,6 @@ function generateXAxis(dates, chartWidth) {
     });
   }
 
-  // Línea de ticks: ─────┬─────┬─────┬─────┬─────┬─────┬─────
   const ticksChars = new Array(totalWidth).fill(' ');
   for (let x = 0; x < chartWidth; x++) {
     ticksChars[Y_AXIS_PADDING + x] = '─';
@@ -109,14 +99,12 @@ function generateXAxis(dates, chartWidth) {
     ticksChars[Y_AXIS_PADDING + position] = '┬';
   }
 
-  // Línea de etiquetas
   const labelsChars = new Array(totalWidth).fill(' ');
   for (let i = 0; i < labelPositions.length; i++) {
     const { position, date } = labelPositions[i];
     const labelText = formatDateLabel(date, rangeDays);
     const startPos = Y_AXIS_PADDING + position;
 
-    // Ajustar posición para que no se salga ni se superponga
     let adjustedStart = startPos;
     if (i === 0) {
       adjustedStart = Y_AXIS_PADDING;
@@ -138,6 +126,67 @@ function generateXAxis(dates, chartWidth) {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// CALCULAR COST BASIS (DINERO INVERTIDO)
+// Detecta depósitos: cuando cash Y netLiquidation suben juntos
+// ═══════════════════════════════════════════════════════════════
+function calculateCostBasis(history) {
+  if (!history || history.length === 0) return [];
+
+  const costBasisValues = [];
+  let accumulatedCostBasis = history[0].netLiquidation;
+
+  debug(`Starting cost basis calculation with initial value: ${accumulatedCostBasis}`);
+
+  for (let i = 0; i < history.length; i++) {
+    if (i === 0) {
+      costBasisValues.push(accumulatedCostBasis);
+      continue;
+    }
+
+    const prev = history[i - 1];
+    const curr = history[i];
+
+    const prevNet = prev.netLiquidation;
+    const currNet = curr.netLiquidation;
+    const prevCash = prev.cash;
+    const currCash = curr.cash;
+
+    if (!Number.isFinite(prevNet) || !Number.isFinite(currNet) ||
+        !Number.isFinite(prevCash) || !Number.isFinite(currCash)) {
+      costBasisValues.push(accumulatedCostBasis);
+      continue;
+    }
+
+    const dNet = currNet - prevNet;
+    const dCash = currCash - prevCash;
+
+    // Detectar depósito/retiro:
+    // Si cash Y netLiquidation cambian en la misma dirección con magnitud similar,
+    // es muy probable que sea un depósito o retiro (no ganancia de mercado)
+    const sameDirection = Math.sign(dNet) === Math.sign(dCash) && Math.sign(dNet) !== 0;
+    const thresholdNet = Math.max(50, Math.abs(prevNet) * 0.002); // 0.2% o $50
+    const thresholdCash = Math.max(50, Math.abs(prevCash) * 0.01); // 1% o $50
+    const bigEnough = Math.abs(dNet) >= thresholdNet && Math.abs(dCash) >= thresholdCash;
+
+    // Además, la razón entre dNet y dCash debe estar cerca de 1
+    // (un depósito de $1000 sube cash ~$1000 y netLiq ~$1000)
+    const ratio = dCash !== 0 ? Math.abs(dNet / dCash) : 0;
+    const ratioIsClose = ratio > 0.5 && ratio < 2.0;
+
+    if (sameDirection && bigEnough && ratioIsClose) {
+      // Es un depósito (dNet > 0) o retiro (dNet < 0)
+      accumulatedCostBasis += dNet;
+      debug(`Detected cash flow at ${new Date(curr.ts).toISOString()}: ${dNet > 0 ? 'DEPOSIT' : 'WITHDRAWAL'} of ${Math.abs(dNet).toFixed(2)}`);
+    }
+
+    costBasisValues.push(accumulatedCostBasis);
+  }
+
+  debug(`Cost basis calculation complete. Final value: ${accumulatedCostBasis}`);
+  return costBasisValues;
+}
+
+// ═══════════════════════════════════════════════════════════════
 // COMPONENTE PRINCIPAL
 // ═══════════════════════════════════════════════════════════════
 export function PortfolioReportScreen({
@@ -152,27 +201,19 @@ export function PortfolioReportScreen({
   const innerWidth = Math.max(0, terminalWidth - 2);
   const chartWidth = Math.max(20, innerWidth - Y_AXIS_PADDING);
 
-  // ALTURA DEL GRÁFICO: 25% de la terminal (más compacto)
-  // Mínimo 6 líneas, máximo 10 líneas
+  // Altura del gráfico: 25% de la terminal, min 6, max 10
   const chartHeight = Math.min(10, Math.max(6, Math.floor(terminalHeight * 0.25)));
 
   debug(`Terminal: ${terminalWidth}x${terminalHeight}, Chart: ${chartWidth}x${chartHeight}`);
-  debug(`Selected period: ${selectedPeriod}`);
 
-  // ═══════════════════════════════════════════════════════════════
-  // INPUT: Esc para volver, ↑↓ para cambiar periodo
-  // ═══════════════════════════════════════════════════════════════
+  // INPUT
   useInput((input, key) => {
-    debug(`Input received: input="${input}", key=${JSON.stringify(key)}`);
-
     if (key.escape) {
-      debug('Navigating back');
       onBack?.();
     } else if (key.upArrow) {
       setSelectedPeriod(prev => {
         const i = PORTFOLIO_PERIOD_KEYS.indexOf(prev);
         if (i < PORTFOLIO_PERIOD_KEYS.length - 1) {
-          debug(`Period up: ${prev} -> ${PORTFOLIO_PERIOD_KEYS[i + 1]}`);
           return PORTFOLIO_PERIOD_KEYS[i + 1];
         }
         return prev;
@@ -181,7 +222,6 @@ export function PortfolioReportScreen({
       setSelectedPeriod(prev => {
         const i = PORTFOLIO_PERIOD_KEYS.indexOf(prev);
         if (i > 0) {
-          debug(`Period down: ${prev} -> ${PORTFOLIO_PERIOD_KEYS[i - 1]}`);
           return PORTFOLIO_PERIOD_KEYS[i - 1];
         }
         return prev;
@@ -193,9 +233,7 @@ export function PortfolioReportScreen({
     if (!PORTFOLIO_PERIODS[selectedPeriod]) setSelectedPeriod(DEFAULT_PERIOD);
   }, [selectedPeriod]);
 
-  // ═══════════════════════════════════════════════════════════════
   // FILTRAR HISTORIA POR PERIODO
-  // ═══════════════════════════════════════════════════════════════
   const filteredHistory = useMemo(() => {
     if (!history || history.length === 0) return [];
 
@@ -209,72 +247,87 @@ export function PortfolioReportScreen({
     return history.filter(p => p.ts >= cutoff);
   }, [history, selectedPeriod]);
 
-  // ═══════════════════════════════════════════════════════════════
-  // RESAMPLEAR DATOS PARA EL ANCHO DEL GRÁFICO
-  // ═══════════════════════════════════════════════════════════════
+  // CALCULAR COST BASIS
+  const costBasisRaw = useMemo(() => {
+    return calculateCostBasis(filteredHistory);
+  }, [filteredHistory]);
+
+  // RESAMPLEAR DATOS
   const sampled = useMemo(() => {
     if (!filteredHistory || filteredHistory.length === 0) {
-      return { values: [], dates: [] };
+      return { values: [], costBasis: [], dates: [] };
     }
 
     const valuesRaw = filteredHistory.map(p => p.netLiquidation);
     const datesRaw = filteredHistory.map(p => new Date(p.ts));
 
-    if (valuesRaw.length === 0) return { values: [], dates: [] };
+    if (valuesRaw.length === 0) return { values: [], costBasis: [], dates: [] };
 
     const values = resampleLinear(valuesRaw, chartWidth);
-    if (values.length === 0) return { values: [], dates: [] };
-
+    const costBasis = resampleLinear(costBasisRaw, chartWidth);
     const ts = resampleLinear(datesRaw.map(d => d.getTime()), chartWidth);
     const dates = ts.map(t => new Date(t));
-    return { values, dates };
-  }, [filteredHistory, chartWidth]);
 
-  // ═══════════════════════════════════════════════════════════════
-  // CALCULAR CAMBIO
-  // ═══════════════════════════════════════════════════════════════
+    return { values, costBasis, dates };
+  }, [filteredHistory, costBasisRaw, chartWidth]);
+
+  // CALCULAR GANANCIA REAL
   const chartData = useMemo(() => {
     if (!sampled.values || sampled.values.length < 2) return null;
-    const first = sampled.values[0];
-    const last = sampled.values[sampled.values.length - 1];
-    const change = last - first;
-    const changePercent = first > 0 ? (change / first) * 100 : 0;
-    return { first, last, change, changePercent };
-  }, [sampled.values]);
 
-  // ═══════════════════════════════════════════════════════════════
-  // RENDERIZAR GRÁFICO CON COLOR SEGÚN PERFORMANCE
-  // ═══════════════════════════════════════════════════════════════
+    const firstValue = sampled.values[0];
+    const lastValue = sampled.values[sampled.values.length - 1];
+    const firstCostBasis = sampled.costBasis[0];
+    const lastCostBasis = sampled.costBasis[sampled.costBasis.length - 1];
+
+    // Ganancia real = (valor actual - cost basis actual) - (valor inicial - cost basis inicial)
+    // O más simple: ganancia real = cambio en valor - cambio en cost basis
+    const realGain = (lastValue - lastCostBasis) - (firstValue - firstCostBasis);
+
+    // También calculamos: cuánto vale ahora vs cuánto invertí en total
+    const totalGain = lastValue - lastCostBasis;
+    const totalGainPercent = lastCostBasis > 0 ? (totalGain / lastCostBasis) * 100 : 0;
+
+    debug(`Chart data: value=${lastValue}, costBasis=${lastCostBasis}, totalGain=${totalGain}`);
+
+    return {
+      lastValue,
+      lastCostBasis,
+      totalGain,
+      totalGainPercent,
+      realGain,
+    };
+  }, [sampled.values, sampled.costBasis]);
+
+  // RENDERIZAR GRÁFICO CON DOS LÍNEAS
   const chartRender = useMemo(() => {
     if (!sampled.values || sampled.values.length < 2 || !chartData) return null;
 
-    const isPositive = chartData.change >= 0;
-    const chartColor = isPositive ? asciichart.green : asciichart.red;
+    const isPositive = chartData.totalGain >= 0;
+    const portfolioColor = isPositive ? asciichart.green : asciichart.red;
+
+    // Color gris para cost basis (usando código ANSI directo)
+    const grayColor = (s) => `\x1b[90m${s}\x1b[0m`;
 
     try {
-      return asciichart.plot(sampled.values, {
+      // asciichart soporta múltiples series
+      return asciichart.plot([sampled.values, sampled.costBasis], {
         height: chartHeight,
-        colors: [chartColor],
+        colors: [portfolioColor, grayColor],
         format: (x) => formatCompact(x).padStart(8),
       });
     } catch (e) {
       debug('Chart render error:', e?.message);
       return null;
     }
-  }, [sampled.values, chartHeight, chartData]);
+  }, [sampled.values, sampled.costBasis, chartHeight, chartData]);
 
-  // ═══════════════════════════════════════════════════════════════
   // EJE X
-  // ═══════════════════════════════════════════════════════════════
   const xAxis = useMemo(() => {
     return generateXAxis(sampled.dates, chartWidth);
   }, [sampled.dates, chartWidth]);
 
-  // ═══════════════════════════════════════════════════════════════
   // ESTADOS ESPECIALES
-  // ═══════════════════════════════════════════════════════════════
-
-  // Loading
   if (!filteredHistory || filteredHistory.length < 2) {
     return (
       <Box flexDirection="column" padding={1}>
@@ -283,7 +336,6 @@ export function PortfolioReportScreen({
     );
   }
 
-  // No data
   if (!chartData || !chartRender) {
     return (
       <Box flexDirection="column" padding={1}>
@@ -291,33 +343,29 @@ export function PortfolioReportScreen({
           <Text bold color="white">{formatMoney(0)}</Text>
           <Text color="gray">   </Text>
           <Text color="gray">no data</Text>
-          <Text color="gray">   </Text>
-          <Text dimColor>{PORTFOLIO_PERIODS[selectedPeriod].label}</Text>
         </Box>
       </Box>
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════
   // RENDER PRINCIPAL
-  // ═══════════════════════════════════════════════════════════════
-
-  const isPositive = chartData.change >= 0;
-  const changeColor = isPositive ? 'green' : 'red';
-  const changeSign = isPositive ? '+' : '';
+  const isPositive = chartData.totalGain >= 0;
+  const gainColor = isPositive ? 'green' : 'red';
+  const gainSign = isPositive ? '+' : '';
 
   return (
     <Box flexDirection="column" padding={1}>
-      {/* ═══ HEADER: Valor + Cambio ═══ */}
+      {/* HEADER: Valor actual + Ganancia real */}
       <Box>
-        <Text bold color="white">{formatMoney(chartData.last)}</Text>
+        <Text bold color="white">{formatMoney(chartData.lastValue)}</Text>
         <Text color="gray">   </Text>
-        <Text color={changeColor} bold>
-          {changeSign}{formatMoney(chartData.change)} ({formatPercent(Math.abs(chartData.changePercent))})
+        <Text color={gainColor} bold>
+          {gainSign}{formatMoney(chartData.totalGain)} ({formatPercent(Math.abs(chartData.totalGainPercent))})
         </Text>
+        <Text color="gray"> gain</Text>
       </Box>
 
-      {/* ═══ SELECTOR DE PERIODO ═══ */}
+      {/* SELECTOR DE PERIODO */}
       <Box marginTop={1}>
         {PORTFOLIO_PERIOD_KEYS.map((key, i) => (
           <Box key={key}>
@@ -332,15 +380,22 @@ export function PortfolioReportScreen({
         <Text color="gray" dimColor>   ↑↓</Text>
       </Box>
 
-      {/* ═══ GRÁFICO ═══ */}
+      {/* GRÁFICO CON DOS LÍNEAS */}
       <Box flexDirection="column" marginTop={1}>
         <Text>{chartRender}</Text>
       </Box>
 
-      {/* ═══ EJE X: Línea de ticks + fechas ═══ */}
+      {/* EJE X */}
       <Box flexDirection="column">
         <Text color="gray">{xAxis.ticksLine}</Text>
         <Text color="gray">{xAxis.labelsLine}</Text>
+      </Box>
+
+      {/* LEYENDA MINIMALISTA */}
+      <Box marginTop={1}>
+        <Text color="gray" dimColor>
+          ─ portfolio   <Text color="gray">┄ invested</Text>
+        </Text>
       </Box>
     </Box>
   );
